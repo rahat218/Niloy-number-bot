@@ -23,11 +23,11 @@ from telegram.error import Forbidden, BadRequest, Conflict
 # -----------------------------------------------------------------------------
 # |                      ⚠️ আপনার সকল গোপন তথ্য এখানে ⚠️                      |
 # -----------------------------------------------------------------------------
-# Environment Variable থেকে তথ্য নেওয়া হচ্ছে
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-DATABASE_URL = os.environ.get("DATABASE_URL")
-ADMIN_USER_ID = int(os.environ.get("ADMIN_USER_ID"))
-SUPPORT_USERNAME = "@NgRony" # এটি সরাসরি রাখা যেতে পারে
+# আপনার ইচ্ছা অনুযায়ী, সব তথ্য এখন সরাসরি কোডেই থাকবে।
+BOT_TOKEN = "7925556669:AAE5F9zUGOK37niSd0x-YEQX8rn-xGd8Pl8"
+DATABASE_URL = "postgresql://number_bot_running_user:kpQLHQIuZF68uc7fMlgFiaNoV7JzemyL@dpg-d21qr663jp1c73871p20-a/number_bot_running" # এখানে আপনার নতুন ডাটাবেসের URL টি দিন
+ADMIN_USER_ID = 7052442701
+SUPPORT_USERNAME = "@NgRony"
 
 # --- বটের সেটিংস ---
 MAX_STRIKES = 3
@@ -389,7 +389,9 @@ async def view_numbers_by_status(update: Update, context: ContextTypes.DEFAULT_T
             await acur.execute("SELECT phone_number, service FROM numbers WHERE status = %s", (status,))
             numbers = await acur.fetchall()
     if not numbers: await update.message.reply_text(no_numbers_msg); return
-    message = f"**{header}**\n\n"; [message + f"`{num['phone_number']}` - *{num['service']}*\n" for num in numbers]
+    message = f"**{header}**\n\n"
+    for num in numbers:
+        message += f"`{num['phone_number']}` - *{num['service']}*\n"
     await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
 def main() -> None:
     threading.Thread(target=run_flask, daemon=True).start()
