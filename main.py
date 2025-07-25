@@ -1,6 +1,7 @@
 import logging
 import datetime
 import psycopg
+import asyncio
 import threading
 import os
 from flask import Flask
@@ -13,6 +14,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
+from telegram.error import Forbidden
 
 # -----------------------------------------------------------------------------
 # |                      ⚠️ আপনার সকল গোপন তথ্য এখানে ⚠️                      |
@@ -50,6 +52,10 @@ LANG_TEXT = {
         "choose_language": "অনুগ্রহ করে আপনার ভাষা নির্বাচন করুন:",
         "lang_changed": "✅ আপনার ভাষা সফলভাবে 'বাংলা' করা হয়েছে।",
         "searching_number": "🔍 আপনার জন্য একটি **{service}** নম্বর খোঁজা হচ্ছে...",
+        "no_number_available": "❌ **দুঃখিত, এই মুহূর্তে নম্বর শেষ!** ❌\n\nআমাদের সকল নম্বর বর্তমানে ব্যবহৃত হচ্ছে। অ্যাডমিনকে বিষয়টি জানানো হয়েছে এবং তিনি খুব শীঘ্রই নতুন নম্বর যোগ করবেন।\n\n⏳ অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।",
+        "broadcast_sent": "✅ বার্তাটি সফলভাবে {count} জন ব্যবহারকারীকে পাঠানো হয়েছে।",
+        "broadcast_no_message": "❌ অনুগ্রহ করে /broadcast কমান্ডের সাথে একটি বার্তা দিন।",
+        "admin_announcement": "📣 অ্যাডমিনের ঘোষণা 📣",
         "back_button": "⬅️ পিছনে",
         "main_menu_prompt": "প্রধান মেনু থেকে একটি অপশন বেছে নিন।",
     },
@@ -69,6 +75,10 @@ LANG_TEXT = {
         "choose_language": "Please select your language:",
         "lang_changed": "✅ Your language has been successfully changed to 'English'.",
         "searching_number": "🔍 Searching for a temporary **{service}** number for you...",
+        "no_number_available": "❌ **Sorry, out of numbers right now!** ❌\n\nAll our numbers are currently in use. The admin has been notified and will add new numbers soon.\n\n⏳ Please try again after some time.",
+        "broadcast_sent": "✅ Message successfully sent to {count} users.",
+        "broadcast_no_message": "❌ Please provide a message with the /broadcast command.",
+        "admin_announcement": "📣 Admin Announcement 📣",
         "back_button": "⬅️ Back",
         "main_menu_prompt": "Choose an option from the main menu.",
     }
@@ -96,51 +106,27 @@ def run_flask():
 async def get_db_conn():
     return await psycopg.AsyncConnection.connect(DATABASE_URL)
 
-# --- ডাটাবেস সেটআপ ফাংশন (সমস্যা সমাধান করা হয়েছে) ---
 async def setup_database(app: Application):
     logger.info("Connecting to database and verifying schema...")
     try:
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
-                # ধাপ ১: টেবিলগুলো তৈরি আছে কিনা তা নিশ্চিত করা
                 await acur.execute("""
                     CREATE TABLE IF NOT EXISTS users (
-                        user_id BIGINT PRIMARY KEY,
-                        first_name VARCHAR(255),
-                        strikes INT DEFAULT 0,
-                        is_banned BOOLEAN DEFAULT FALSE,
-                        ban_until TIMESTAMP
+                        user_id BIGINT PRIMARY KEY, first_name VARCHAR(255), strikes INT DEFAULT 0,
+                        is_banned BOOLEAN DEFAULT FALSE, ban_until TIMESTAMP
                     );
                     CREATE TABLE IF NOT EXISTS numbers (
-                        id SERIAL PRIMARY KEY,
-                        phone_number VARCHAR(25) UNIQUE NOT NULL,
-                        service VARCHAR(50) NOT NULL,
-                        is_available BOOLEAN DEFAULT TRUE,
-                        is_reported BOOLEAN DEFAULT FALSE,
-                        assigned_to BIGINT,
-                        assigned_at TIMESTAMP
+                        id SERIAL PRIMARY KEY, phone_number VARCHAR(25) UNIQUE NOT NULL, service VARCHAR(50) NOT NULL,
+                        is_available BOOLEAN DEFAULT TRUE, is_reported BOOLEAN DEFAULT FALSE,
+                        assigned_to BIGINT, assigned_at TIMESTAMP
                     );
                 """)
-                
-                # ধাপ ২: 'language' কলামটি 'users' টেবিলে আছে কিনা তা চেক করা
-                await acur.execute("""
-                    SELECT 1 FROM information_schema.columns 
-                    WHERE table_name='users' AND column_name='language'
-                """)
-                column_exists = await acur.fetchone()
-
-                # ধাপ ৩: যদি কলামটি না থাকে, তবে এটিকে ডিফল্ট মান দিয়ে যোগ করা
-                if not column_exists:
-                    logger.warning("Column 'language' not found in 'users' table. Adding it now...")
+                await acur.execute("SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='language'")
+                if not await acur.fetchone():
                     await acur.execute("ALTER TABLE users ADD COLUMN language VARCHAR(5) DEFAULT 'bn';")
-                    logger.info("SUCCESS: Column 'language' added to 'users' table.")
-        
         logger.info("SUCCESS: Database schema is up-to-date.")
-        await app.bot.send_message(
-            chat_id=ADMIN_USER_ID, 
-            text="✅ **Bot Deployed/Restarted Successfully!**\nDatabase schema is up-to-date.", 
-            parse_mode='Markdown'
-        )
+        await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ **Bot Deployed/Restarted Successfully!**", parse_mode='Markdown')
     except Exception as e:
         logger.error(f"CRITICAL: Database or boot failure! Error: {e}")
 
@@ -151,54 +137,47 @@ async def get_user_lang(user_id: int) -> str:
             result = await acur.fetchone()
             return result[0] if result and result[0] else 'bn'
 
+async def find_available_number(service: str):
+    """ডাটাবেস থেকে একটি নির্দিষ্ট সার্ভিসের জন্য উপলব্ধ নম্বর খুঁজে বের করে।"""
+    async with await get_db_conn() as aconn:
+        async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
+            await acur.execute(
+                "SELECT id, phone_number FROM numbers WHERE service ILIKE %s AND is_available = TRUE ORDER BY id LIMIT 1",
+                (service,)
+            )
+            return await acur.fetchone()
+
 # -----------------------------------------------------------------------------
 # |                      টেলিগ্রাম বটের সকল হ্যান্ডলার                       |
 # -----------------------------------------------------------------------------
 
 def get_main_reply_keyboard():
-    keyboard = [
-        [GET_NUMBER_TEXT],
-        [MY_STATS_TEXT, SUPPORT_TEXT],
-        [LANGUAGE_TEXT]
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="Choose an option...")
+    return ReplyKeyboardMarkup([[GET_NUMBER_TEXT], [MY_STATS_TEXT, SUPPORT_TEXT], [LANGUAGE_TEXT]], resize_keyboard=True)
 
 async def get_number_options_keyboard(lang: str):
-    keyboard = [
+    return InlineKeyboardMarkup([
         [InlineKeyboardButton("💎 Facebook", callback_data="get_number_facebook")],
         [InlineKeyboardButton("✈️ Telegram", callback_data="get_number_telegram")],
         [InlineKeyboardButton("💬 WhatsApp", callback_data="get_number_whatsapp")],
         [InlineKeyboardButton(LANG_TEXT[lang]['back_button'], callback_data="back_to_main")]
-    ]
-    return InlineKeyboardMarkup(keyboard)
+    ])
 
 # --- প্রধান কমান্ড হ্যান্ডলার ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    logger.info(f"User started: {user.first_name} ({user.id})")
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur:
             await acur.execute("INSERT INTO users (user_id, first_name) VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET first_name = EXCLUDED.first_name", (user.id, user.first_name))
-    
     lang = await get_user_lang(user.id)
     await update.message.reply_text(
         text=LANG_TEXT[lang]['welcome'].format(first_name=user.first_name),
-        reply_markup=get_main_reply_keyboard(),
-        parse_mode='Markdown'
-    )
-
-async def hide_keyboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = await get_user_lang(update.effective_user.id)
-    await update.message.reply_text(
-        LANG_TEXT[lang]['keyboard_hidden'],
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=get_main_reply_keyboard(), parse_mode='Markdown'
     )
 
 # --- কীবোর্ড বাটন হ্যান্ডলার ---
 async def handle_get_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = await get_user_lang(update.effective_user.id)
-    reply_markup = await get_number_options_keyboard(lang)
-    await update.message.reply_text(text=LANG_TEXT[lang]['choose_service'], reply_markup=reply_markup)
+    await update.message.reply_text(text=LANG_TEXT[lang]['choose_service'], reply_markup=await get_number_options_keyboard(lang))
 
 async def handle_my_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -210,8 +189,7 @@ async def handle_my_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if stats:
                 message = f"{LANG_TEXT[lang]['stats_header']}\n\n{LANG_TEXT[lang]['strikes']}: `{stats['strikes']}/{MAX_STRIKES}`\n"
                 if stats['is_banned']:
-                    message += f"{LANG_TEXT[lang]['spam_count']}: `{MAX_STRIKES}/{MAX_STRIKES}`\n"
-                    message += f"{LANG_TEXT[lang]['status_banned'].format(hours=BAN_HOURS)}"
+                    message += f"{LANG_TEXT[lang]['spam_count']}: `{MAX_STRIKES}/{MAX_STRIKES}`\n{LANG_TEXT[lang]['status_banned'].format(hours=BAN_HOURS)}"
                 else:
                     message += f"{LANG_TEXT[lang]['status_normal']}"
             else:
@@ -220,23 +198,15 @@ async def handle_my_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = await get_user_lang(update.effective_user.id)
-    support_button = InlineKeyboardButton(
-        text=LANG_TEXT[lang]['support_button'],
-        url=f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}"
-    )
-    reply_markup = InlineKeyboardMarkup([[support_button]])
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton(text=LANG_TEXT[lang]['support_button'], url=f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}")]])
     await update.message.reply_text(text=LANG_TEXT[lang]['support_prompt'], reply_markup=reply_markup)
 
 async def handle_language_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = await get_user_lang(update.effective_user.id)
-    keyboard = [
-        [InlineKeyboardButton("🇧🇩 বাংলা", callback_data="set_lang_bn")],
-        [InlineKeyboardButton("🇬🇧 English", callback_data="set_lang_en")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🇧🇩 বাংলা", callback_data="set_lang_bn")], [InlineKeyboardButton("🇬🇧 English", callback_data="set_lang_en")]])
     await update.message.reply_text(text=LANG_TEXT[lang]['choose_language'], reply_markup=reply_markup)
 
-# --- ইনলাইন বাটন ক্লিক হ্যান্ডলার ---
+# --- ইনলাইন বাটন ক্লিক হ্যান্ডলার (পরিবর্তিত) ---
 async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -246,7 +216,20 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if data.startswith("get_number_"):
         service = data.split("_")[2].capitalize()
+        
+        # নম্বর খোঁজার আগে মেসেজ এডিট করা
         await query.edit_message_text(text=LANG_TEXT[lang]['searching_number'].format(service=service), parse_mode='Markdown')
+        
+        # ডাটাবেস থেকে নম্বর খোঁজা
+        number_data = await find_available_number(service)
+        
+        if number_data:
+            # এখানে নম্বর পাওয়া গেলে, নম্বর বরাদ্দ করার লজিক লিখতে হবে
+            # উদাহরণ: await assign_number_to_user(number_data['id'], user_id)
+            await query.edit_message_text(f"আপনার নম্বর: `{number_data['phone_number']}`", parse_mode='Markdown')
+        else:
+            # নম্বর না পাওয়া গেলে নতুন মেসেজ দেখানো
+            await query.edit_message_text(text=LANG_TEXT[lang]['no_number_available'], parse_mode='Markdown')
     
     elif data.startswith("set_lang_"):
         new_lang = data.split("_")[2]
@@ -260,9 +243,38 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.message.delete()
         await query.message.reply_text(LANG_TEXT[lang]['main_menu_prompt'])
 
-async def handle_unknown_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = await get_user_lang(update.effective_user.id)
-    await update.message.reply_text(LANG_TEXT[lang]['unknown_command'])
+# --- নতুন অ্যাডমিন ব্রডকাস্ট কমান্ড ---
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_USER_ID:
+        return
+
+    lang = await get_user_lang(ADMIN_USER_ID)
+    if not context.args:
+        await update.message.reply_text(LANG_TEXT[lang]['broadcast_no_message'])
+        return
+    
+    message_to_send = ' '.join(context.args)
+    
+    async with await get_db_conn() as aconn:
+        async with aconn.cursor() as acur:
+            await acur.execute("SELECT user_id, language FROM users")
+            all_users = await acur.fetchall()
+
+    sent_count = 0
+    for user_id, user_lang in all_users:
+        # ব্যবহারকারীর ভাষা অনুযায়ী হেডার তৈরি
+        header = LANG_TEXT.get(user_lang, LANG_TEXT['bn'])['admin_announcement']
+        formatted_message = f"> **{header}**\n>\n> {message_to_send}"
+        try:
+            await context.bot.send_message(chat_id=user_id, text=formatted_message, parse_mode='Markdown')
+            sent_count += 1
+            await asyncio.sleep(0.1) # স্প্যামিং এড়ানোর জন্য ছোট বিরতি
+        except Forbidden:
+            logger.warning(f"User {user_id} has blocked the bot. Skipping.")
+        except Exception as e:
+            logger.error(f"Failed to send message to {user_id}: {e}")
+            
+    await update.message.reply_text(LANG_TEXT[lang]['broadcast_sent'].format(count=sent_count))
 
 # -----------------------------------------------------------------------------
 # |                         ফাইনাল অ্যাপ্লিকেশন চালু করা                        |
@@ -277,7 +289,7 @@ def main() -> None:
     
     # --- কমান্ড হ্যান্ডলার ---
     bot_app.add_handler(CommandHandler("start", start_command))
-    bot_app.add_handler(CommandHandler("hide", hide_keyboard_command))
+    bot_app.add_handler(CommandHandler("broadcast", broadcast_command)) # নতুন হ্যান্ডলার
 
     # --- ReplyKeyboard বাটনগুলোর জন্য MessageHandler ---
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{GET_NUMBER_TEXT}$'), handle_get_number))
@@ -287,9 +299,6 @@ def main() -> None:
 
     # --- ইনলাইন বাটনের জন্য CallbackQueryHandler ---
     bot_app.add_handler(CallbackQueryHandler(handle_button_press))
-    
-    # --- অজানা টেক্সট হ্যান্ডেল করার জন্য ---
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unknown_text))
 
     logger.info("Telegram Bot starting polling...")
     bot_app.run_polling(allowed_updates=Update.ALL_TYPES)
