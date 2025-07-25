@@ -23,16 +23,17 @@ from telegram.error import Forbidden, BadRequest, Conflict
 # -----------------------------------------------------------------------------
 # |                      ⚠️ আপনার সকল গোপন তথ্য এখানে ⚠️                      |
 # -----------------------------------------------------------------------------
-BOT_TOKEN = "7925556669:AAE5F9zUGOK37niSd0x-YEQX8rn-xGd8Pl8"
-DATABASE_URL = "postgresql://number_bot_running_user:kpQLHQIuZF68uc7fMlgFiaNoV7JzemyL@dpg-d21qr663jp1c73871p20-a/number_bot_running"
-ADMIN_USER_ID = 7052442701
-SUPPORT_USERNAME = "@NgRony"
+# Environment Variable থেকে তথ্য নেওয়া হচ্ছে
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+DATABASE_URL = os.environ.get("DATABASE_URL")
+ADMIN_USER_ID = int(os.environ.get("ADMIN_USER_ID"))
+SUPPORT_USERNAME = "@NgRony" # এটি সরাসরি রাখা যেতে পারে
 
 # --- বটের সেটিংস ---
 MAX_STRIKES = 3
 BAN_HOURS = 24
-NUMBER_EXPIRATION_MINUTES = 5 
-USER_COOLDOWN_SECONDS = 120 
+NUMBER_EXPIRATION_MINUTES = 5
+USER_COOLDOWN_SECONDS = 120
 
 # --- বাটন টেক্সট ---
 GET_NUMBER_TEXT = "✨ Get Number 🎗️"
@@ -98,60 +99,41 @@ LANG_TEXT['en'] = en_text
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("telegram.ext").setLevel(logging.WARNING)
-
 logger = logging.getLogger(__name__)
-
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def keep_alive(): return "Bot is alive!"
 def run_flask(): flask_app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
 
 # -----------------------------------------------------------------------------
-# |                         ডাটাবেস এবং প্রধান ফাংশন (সংশোধিত)                      |
+# |                         ডাটাবেস এবং প্রধান ফাংশন                          |
 # -----------------------------------------------------------------------------
+async def get_db_conn(): return await psycopg.AsyncConnection.connect(DATABASE_URL)
 async def setup_database(app: Application):
     logger.info("Verifying database schema...")
     try:
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
-                # টেবিলগুলো আলাদা আলাদাভাবে তৈরি করা হচ্ছে
                 logger.info("Creating 'users' table if not exists...")
                 await acur.execute("""
                     CREATE TABLE IF NOT EXISTS users (
-                        user_id BIGINT PRIMARY KEY,
-                        first_name VARCHAR(255),
-                        strikes INT DEFAULT 0,
-                        is_banned BOOLEAN DEFAULT FALSE,
-                        ban_until TIMESTAMP WITH TIME ZONE,
-                        language VARCHAR(5) DEFAULT 'bn',
-                        last_broadcast_id BIGINT,
-                        cooldown_until TIMESTAMP WITH TIME ZONE
-                    );
-                """)
+                        user_id BIGINT PRIMARY KEY, first_name VARCHAR(255), strikes INT DEFAULT 0,
+                        is_banned BOOLEAN DEFAULT FALSE, ban_until TIMESTAMP WITH TIME ZONE,
+                        language VARCHAR(5) DEFAULT 'bn', last_broadcast_id BIGINT,
+                        cooldown_until TIMESTAMP WITH TIME ZONE);""")
                 logger.info("Creating 'numbers' table if not exists...")
                 await acur.execute("""
                     CREATE TABLE IF NOT EXISTS numbers (
-                        id SERIAL PRIMARY KEY,
-                        phone_number VARCHAR(25) UNIQUE NOT NULL,
-                        service VARCHAR(50) NOT NULL,
-                        status VARCHAR(20) DEFAULT 'available',
-                        assigned_to_id BIGINT,
-                        assigned_at TIMESTAMP WITH TIME ZONE,
-                        message_id BIGINT
-                    );
-                """)
+                        id SERIAL PRIMARY KEY, phone_number VARCHAR(25) UNIQUE NOT NULL,
+                        service VARCHAR(50) NOT NULL, status VARCHAR(20) DEFAULT 'available',
+                        assigned_to_id BIGINT, assigned_at TIMESTAMP WITH TIME ZONE, message_id BIGINT);""")
                 logger.info("Creating index on 'numbers' table if not exists...")
-                await acur.execute("""
-                    CREATE INDEX IF NOT EXISTS numbers_status_service_idx ON numbers (status, service);
-                """)
+                await acur.execute("CREATE INDEX IF NOT EXISTS numbers_status_service_idx ON numbers (status, service);")
         logger.info("SUCCESS: Database schema is up-to-date.")
         await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ **Bot Deployed/Restarted Successfully!**", parse_mode=ParseMode.MARKDOWN)
     except Exception as e:
         logger.error(f"CRITICAL: Database setup failed! Error: {e}")
-        # ডাটাবেস সেটআপ ফেইল করলে বটকে পুরোপুরি বন্ধ করে দেওয়া হচ্ছে
         os._exit(1)
-
-# (বাকি কোড অপরিবর্তিত আছে)
 async def get_user_lang(user_id: int) -> str:
     try:
         async with await get_db_conn() as aconn:
@@ -168,11 +150,9 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     if isinstance(context.error, Conflict):
         logger.warning("Conflict error detected. Another instance is running. Shutting down this instance.")
         os._exit(1)
-    else:
-        logger.error("Exception while handling an update:", exc_info=context.error)
+    else: logger.error("Exception while handling an update:", exc_info=context.error)
 async def number_expiration_job(context: ContextTypes.DEFAULT_TYPE):
-    job = context.job
-    user_id, number, service = job.data
+    job = context.job; user_id, number, service = job.data
     lang = await get_user_lang(user_id)
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
@@ -205,21 +185,18 @@ async def daily_cleanup_job(context: ContextTypes.DEFAULT_TYPE):
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     async with await get_db_conn() as aconn:
-        async with aconn.cursor() as acur:
-            await acur.execute("INSERT INTO users (user_id, first_name) VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET first_name = EXCLUDED.first_name", (user.id, user.first_name))
+        async with aconn.cursor() as acur: await acur.execute("INSERT INTO users (user_id, first_name) VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET first_name = EXCLUDED.first_name", (user.id, user.first_name))
     lang = await get_user_lang(user.id)
     await update.message.reply_text(text=LANG_TEXT[lang]['welcome'].format(first_name=user.first_name), reply_markup=get_main_reply_keyboard(user.id), parse_mode=ParseMode.MARKDOWN)
 async def check_user_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    user_id = update.effective_user.id
-    lang = await get_user_lang(user_id)
+    user_id = update.effective_user.id; lang = await get_user_lang(user_id)
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT is_banned, ban_until, cooldown_until FROM users WHERE user_id = %s", (user_id,))
             user_data = await acur.fetchone()
             if user_data:
                 effective_message = update.callback_query.message if update.callback_query else update.message
-                if user_data['is_banned']:
-                    await effective_message.reply_text(LANG_TEXT[lang]['user_is_banned']); return False
+                if user_data['is_banned']: await effective_message.reply_text(LANG_TEXT[lang]['user_is_banned']); return False
                 if user_data['cooldown_until'] and user_data['cooldown_until'] > datetime.datetime.now(pytz.utc):
                     seconds_left = int((user_data['cooldown_until'] - datetime.datetime.now(pytz.utc)).total_seconds())
                     await effective_message.reply_text(LANG_TEXT[lang]['cooldown_message'].format(seconds=seconds_left)); return False
@@ -230,8 +207,7 @@ async def handle_get_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[InlineKeyboardButton(s, callback_data=f"get_number_{s.lower()}") for s in ["Facebook", "Telegram", "WhatsApp"]]]
     await update.message.reply_text(LANG_TEXT[lang]['choose_service'], reply_markup=InlineKeyboardMarkup(keyboard))
 async def handle_my_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    lang = await get_user_lang(user_id)
+    user_id = update.effective_user.id; lang = await get_user_lang(user_id)
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT strikes, is_banned, ban_until FROM users WHERE user_id = %s", (user_id,))
@@ -239,8 +215,7 @@ async def handle_my_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if stats:
                 message = f"**{LANG_TEXT[lang]['stats_header']}**\n\n{LANG_TEXT[lang]['strikes']}: `{stats['strikes']}/{MAX_STRIKES}`\n"
                 if stats['is_banned']:
-                    time_left = (stats['ban_until'] - datetime.datetime.now(pytz.utc))
-                    hours, remainder = divmod(time_left.total_seconds(), 3600); minutes, _ = divmod(remainder, 60)
+                    time_left = (stats['ban_until'] - datetime.datetime.now(pytz.utc)); hours, remainder = divmod(time_left.total_seconds(), 3600); minutes, _ = divmod(remainder, 60)
                     time_left_str = f"{int(hours)}h {int(minutes)}m"
                     message += f"{LANG_TEXT[lang]['status_banned'].format(time_left=time_left_str)}"
                 else: message += f"{LANG_TEXT[lang]['status_normal']}"
@@ -255,11 +230,8 @@ async def handle_language_button(update: Update, context: ContextTypes.DEFAULT_T
     keyboard = [[InlineKeyboardButton("🇧🇩 বাংলা", callback_data="set_lang_bn"), InlineKeyboardButton("🇬🇧 English", callback_data="set_lang_en")]]
     await update.message.reply_text(LANG_TEXT[lang]['choose_language'], reply_markup=InlineKeyboardMarkup(keyboard))
 async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user = query.from_user
-    data = query.data
-    lang = await get_user_lang(user.id)
+    query = update.callback_query; await query.answer()
+    user = query.from_user; data = query.data; lang = await get_user_lang(user.id)
     if data.startswith("set_lang_"):
         new_lang = data.split("_")[-1]
         async with await get_db_conn() as aconn:
@@ -293,15 +265,13 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
                 cooldown_time = datetime.datetime.now(pytz.utc) + datetime.timedelta(seconds=USER_COOLDOWN_SECONDS)
                 await acur.execute("UPDATE users SET cooldown_until = %s WHERE user_id = %s", (cooldown_time, user.id))
         await query.edit_message_text(text=LANG_TEXT[lang]['number_released'])
-        jobs = context.job_queue.get_jobs_by_name(f"exp_{user.id}_{number}")
-        for job in jobs: job.schedule_removal()
+        jobs = context.job_queue.get_jobs_by_name(f"exp_{user.id}_{number}"); [job.schedule_removal() for job in jobs]
     elif data.startswith("report_"):
         number = data.split("_")[1]
         await query.edit_message_text(text=LANG_TEXT[lang]['number_reported'])
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur: await acur.execute("UPDATE numbers SET status = 'reported', assigned_to_id = NULL, assigned_at = NULL, message_id = NULL WHERE phone_number = %s AND assigned_to_id = %s", (number, user.id))
-        jobs = context.job_queue.get_jobs_by_name(f"exp_{user.id}_{number}")
-        for job in jobs: job.schedule_removal()
+        jobs = context.job_queue.get_jobs_by_name(f"exp_{user.id}_{number}"); [job.schedule_removal() for job in jobs]
         await handle_get_number(update, context)
 async def admin_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_USER_ID: return
@@ -309,8 +279,7 @@ async def admin_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     keyboard = [[InlineKeyboardButton("➕ নম্বর যোগ করুন", callback_data="admin_add_numbers"), InlineKeyboardButton("📣 ঘোষণা দিন", callback_data="admin_broadcast")], [InlineKeyboardButton("📜 গাইডলাইন দেখুন", callback_data="admin_guideline")]]
     await update.message.reply_text(LANG_TEXT[lang]['admin_panel_welcome'], reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
 async def admin_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+    query = update.callback_query; await query.answer()
     if query.from_user.id != ADMIN_USER_ID: return
     lang = await get_user_lang(ADMIN_USER_ID)
     if query.data == "admin_add_numbers": await query.message.reply_text(LANG_TEXT[lang]['ask_for_numbers']); return ADDING_NUMBERS
@@ -337,14 +306,16 @@ async def handle_broadcast_convo(update: Update, context: ContextTypes.DEFAULT_T
 async def broadcast_message(context: ContextTypes.DEFAULT_TYPE, message_text: str):
     lang = await get_user_lang(ADMIN_USER_ID)
     async with await get_db_conn() as aconn:
-        async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur: await acur.execute("SELECT user_id, last_broadcast_id FROM users")
+        async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
+            await acur.execute("SELECT user_id, last_broadcast_id FROM users")
             all_users = await acur.fetchall()
     sent_count = 0
     for user_data in all_users:
         user_id = user_data['user_id']
         try:
             sent_message = await context.bot.send_message(chat_id=user_id, text=message_text, parse_mode=ParseMode.MARKDOWN)
-            async with aconn.cursor() as acur_update: await acur_update.execute("UPDATE users SET last_broadcast_id = %s WHERE user_id = %s", (sent_message.message_id, user_id))
+            async with aconn.cursor() as acur_update:
+                await acur_update.execute("UPDATE users SET last_broadcast_id = %s WHERE user_id = %s", (sent_message.message_id, user_id))
             sent_count += 1
         except Forbidden: logger.warning(f"User {user_id} blocked the bot.")
         except Exception as e: logger.error(f"Failed broadcast to {user_id}: {e}")
@@ -412,31 +383,20 @@ async def reactivate_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def view_numbers_by_status(update: Update, context: ContextTypes.DEFAULT_TYPE, status: str):
     if update.effective_user.id != ADMIN_USER_ID: return
     lang = await get_user_lang(ADMIN_USER_ID)
-    header = LANG_TEXT[lang][f'{status}_numbers_header']
-    no_numbers_msg = LANG_TEXT[lang][f'no_{status}_numbers']
+    header = LANG_TEXT[lang][f'{status}_numbers_header']; no_numbers_msg = LANG_TEXT[lang][f'no_{status}_numbers']
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT phone_number, service FROM numbers WHERE status = %s", (status,))
             numbers = await acur.fetchall()
-    if not numbers:
-        await update.message.reply_text(no_numbers_msg)
-        return
-    message = f"**{header}**\n\n"
-    for num in numbers: message += f"`{num['phone_number']}` - *{num['service']}*\n"
+    if not numbers: await update.message.reply_text(no_numbers_msg); return
+    message = f"**{header}**\n\n"; [message + f"`{num['phone_number']}` - *{num['service']}*\n" for num in numbers]
     await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
-
-# -----------------------------------------------------------------------------
-# |                         ফাইনাল অ্যাপ্লিকেশন চালু করা                        |
-# -----------------------------------------------------------------------------
 def main() -> None:
     threading.Thread(target=run_flask, daemon=True).start()
     bot_app = Application.builder().token(BOT_TOKEN).post_init(setup_database).build()
-    
     job_queue = bot_app.job_queue
     job_queue.run_daily(daily_cleanup_job, time=datetime.time(hour=0, minute=5, tzinfo=pytz.UTC))
-
     bot_app.add_error_handler(error_handler)
-
     admin_conv_handler = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(admin_panel_callback, pattern='^admin_add_numbers$'),
@@ -448,13 +408,10 @@ def main() -> None:
                 BROADCAST_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_broadcast_convo)],},
         fallbacks=[CommandHandler("start", start_command)], per_message=False,
     )
-    
     bot_app.add_handler(admin_conv_handler)
     bot_app.add_handler(CommandHandler("start", start_command))
-    bot_app.add_handler(CommandHandler("ban", ban_command))
-    bot_app.add_handler(CommandHandler("unban", unban_command))
-    bot_app.add_handler(CommandHandler("delnumber", delnumber_command))
-    bot_app.add_handler(CommandHandler("delbroadcast", delete_last_broadcast))
+    bot_app.add_handler(CommandHandler("ban", ban_command)); bot_app.add_handler(CommandHandler("unban", unban_command))
+    bot_app.add_handler(CommandHandler("delnumber", delnumber_command)); bot_app.add_handler(CommandHandler("delbroadcast", delete_last_broadcast))
     bot_app.add_handler(CommandHandler("reactivate", reactivate_command))
     bot_app.add_handler(CommandHandler("view_reported", lambda u, c: view_numbers_by_status(u, c, 'reported')))
     bot_app.add_handler(CommandHandler("view_expired", lambda u, c: view_numbers_by_status(u, c, 'expired')))
@@ -466,9 +423,7 @@ def main() -> None:
     bot_app.add_handler(CallbackQueryHandler(admin_panel_callback, pattern='^admin_guideline$'))
     bot_app.add_handler(CallbackQueryHandler(handle_button_press))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, start_command))
-
     logger.info("Telegram Bot starting polling...")
     bot_app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
-
 if __name__ == "__main__":
     main()
