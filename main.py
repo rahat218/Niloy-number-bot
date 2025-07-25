@@ -20,17 +20,18 @@ from telegram.ext import (
 BOT_TOKEN = "7925556669:AAE5F9zUGOK37niSd0x-YEQX8rn-xGd8Pl8" # প্রয়োজনে নতুন টোকেন ব্যবহার করুন
 DATABASE_URL = "postgresql://niloy_number_bot_user:p2pmOrN2Kx7WjiC611qPGk1cVBqEbfeq@dpg-d20ii8nfte5s738v6elg-a/niloy_number_bot"
 ADMIN_USER_ID = 7052442701
-SUPPORT_USERNAME = "t.me/Ngrony"
+SUPPORT_USERNAME = "@NgRony"
 
 # --- বটের সেটিংস ---
 MAX_STRIKES = 3
 BAN_HOURS = 24
 
 # --- বাটন টেক্সট (সহজে পরিবর্তনের জন্য) ---
-GET_NUMBER_TEXT = "🔗 Get Number ✨"
+# আপনার অনুরোধ অনুযায়ী Get Number বাটনের ইমোজি পরিবর্তন করা হয়েছে
+GET_NUMBER_TEXT = "✨ Get Number 🎗️"
 MY_STATS_TEXT = "📊 My Stats"
 SUPPORT_TEXT = "📞 Support"
-LANGUAGE_TEXT = "🌐 Language" # নতুন বাটন
+LANGUAGE_TEXT = "🌐 Language"
 
 # --- বহুভাষিক টেক্সট ---
 LANG_TEXT = {
@@ -102,7 +103,6 @@ async def setup_database(app: Application):
     try:
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
-                # --- ডাটাবেসে language কলাম যোগ করা হয়েছে ---
                 await acur.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         user_id BIGINT PRIMARY KEY,
@@ -120,7 +120,6 @@ async def setup_database(app: Application):
         logger.error(f"CRITICAL: Database or boot failure! Error: {e}")
 
 async def get_user_lang(user_id: int) -> str:
-    """ডাটাবেস থেকে ব্যবহারকারীর ভাষা খুঁজে বের করে।"""
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur:
             await acur.execute("SELECT language FROM users WHERE user_id = %s", (user_id,))
@@ -135,7 +134,7 @@ def get_main_reply_keyboard():
     keyboard = [
         [GET_NUMBER_TEXT],
         [MY_STATS_TEXT, SUPPORT_TEXT],
-        [LANGUAGE_TEXT] # ভাষা বাটন যোগ করা হয়েছে
+        [LANGUAGE_TEXT]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="Choose an option...")
 
