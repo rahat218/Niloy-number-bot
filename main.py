@@ -24,7 +24,7 @@ from telegram.error import Forbidden, BadRequest, Conflict
 # |                      ⚠️ আপনার সকল গোপন তথ্য এখানে ⚠️                      |
 # -----------------------------------------------------------------------------
 BOT_TOKEN = "7925556669:AAE5F9zUGOK37niSd0x-YEQX8rn-xGd8Pl8"
-DATABASE_URL = "postgresql://niloy_number_bot_way9_user:আপনারপাসওয়ার্ড@dpg-d21gkgrs0dus7395dcx0-a/niloy_number_bot_way9" # এখানে আপনার ডাটাবেসের সঠিক URL টি দিন
+DATABASE_URL = "postgresql://number_bot_running_user:kpQLHQIuZF68uc7fMlgFiaNoV7JzemyL@dpg-d21qr663jp1c73871p20-a/number_bot_running" # এখানে আপনার ডাটাবেসের সঠিক URL টি দিন
 ADMIN_USER_ID = 7052442701
 SUPPORT_USERNAME = "@NgRony"
 
