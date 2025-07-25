@@ -7,7 +7,7 @@ import asyncio
 import threading
 import os
 from flask import Flask
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
     ConversationHandler,
@@ -23,9 +23,8 @@ from telegram.error import Forbidden, BadRequest, Conflict
 # -----------------------------------------------------------------------------
 # |                      ⚠️ আপনার সকল গোপন তথ্য এখানে ⚠️                      |
 # -----------------------------------------------------------------------------
-# আপনার ইচ্ছা অনুযায়ী, সব তথ্য এখন সরাসরি কোডেই থাকবে।
 BOT_TOKEN = "7925556669:AAE5F9zUGOK37niSd0x-YEQX8rn-xGd8Pl8"
-DATABASE_URL = "postgresql://number_bot_running_user:kpQLHQIuZF68uc7fMlgFiaNoV7JzemyL@dpg-d21qr663jp1c73871p20-a/number_bot_running" # এখানে আপনার নতুন ডাটাবেসের URL টি দিন
+DATABASE_URL = "postgresql://niloy_number_bot_way9_user:আপনারপাসওয়ার্ড@dpg-d21gkgrs0dus7395dcx0-a/niloy_number_bot_way9" # এখানে আপনার ডাটাবেসের সঠিক URL টি দিন
 ADMIN_USER_ID = 7052442701
 SUPPORT_USERNAME = "@NgRony"
 
@@ -46,7 +45,7 @@ ADMIN_PANEL_TEXT = "👑 Admin Panel 👑"
 ADDING_NUMBERS = 1
 BROADCAST_MESSAGE = 2
 
-# --- সম্পূর্ণ বহুভাষিক টেক্সট ---
+# --- সম্পূর্ণ বহুভাষিক টেক্সট (সঠিক অনুবাদ সহ) ---
 LANG_TEXT = {
     'bn': {
         "welcome": "👋 **স্বাগতম, {first_name}!**\n\nনিচের কীবোর্ড থেকে একটি অপশন বেছে নিন।",
@@ -56,7 +55,9 @@ LANG_TEXT = {
         "status_normal": "স্ট্যাটাস: সাধারণ ব্যবহারকারী", "stats_not_found": "আপনার পরিসংখ্যান খুঁজে পাওয়া যায়নি।",
         "support_prompt": "📞 সাপোর্টের জন্য নিচের বাটনে ক্লিক করুন।", "support_button": "সাপোর্টে যোগাযোগ করুন",
         "unknown_command": "🤔 দুঃখিত, কমান্ডটি বুঝতে পারিনি।", "choose_language": "অনুগ্রহ করে আপনার ভাষা নির্বাচন করুন:",
-        "lang_changed": "✅ আপনার ভাষা সফলভাবে 'বাংলা' করা হয়েছে।", "searching_number": "🔍 আপনার জন্য একটি **{service}** নম্বর খোঁজা হচ্ছে...",
+        "lang_changed_bn": "✅ আপনার ভাষা সফলভাবে 'বাংলা' করা হয়েছে।",
+        "lang_changed_en": "✅ Language successfully changed to 'English'.",
+        "searching_number": "🔍 আপনার জন্য একটি **{service}** নম্বর খোঁজা হচ্ছে...",
         "no_number_available": "❌ **দুঃখিত, এই মুহূর্তে নম্বর শেষ!** ❌\n\nঅ্যাডমিন খুব শীঘ্রই নতুন নম্বর যোগ করবেন।\n⏳ অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।",
         "new_numbers_broadcast": "🎉 **সুখবর! নতুন নম্বর যোগ করা হয়েছে!** 🎉\n\n**তারিখ:** {date}\n\nএখনই আপনার প্রয়োজনীয় নম্বরটি নিয়ে নিন!",
         "admin_panel_welcome": "👑 **অ্যাডমিন প্যানেলে স্বাগতম** 👑", "guideline_title": "📜 **অ্যাডমিন গাইডলাইন** 📜",
@@ -67,11 +68,10 @@ LANG_TEXT = {
         "user_banned_success": "✅ ব্যবহারকারী {user_id} কে ব্যান করা হয়েছে।",
         "user_unbanned_success": "✅ ব্যবহারকারী {user_id} কে আনব্যান করা হয়েছে।",
         "user_not_found": "❌ ব্যবহারকারী {user_id} কে খুঁজে পাওয়া যায়নি।",
-        "broadcast_sent": "✅ বার্তাটি {count} জন ব্যবহারকারীকে পাঠানো হয়েছে।",
-        "broadcast_no_message": "❌ /broadcast কমান্ডের সাথে একটি বার্তা দিন।",
         "ask_broadcast_message": "📣 আপনার ঘোষণার বার্তাটি পাঠান:",
+        "broadcast_sent": "✅ বার্তাটি {count} জন ব্যবহারকারীকে পাঠানো হয়েছে।",
         "broadcast_deleted": "✅ সর্বশেষ ঘোষণাটি সফলভাবে মুছে ফেলা হয়েছে।",
-        "admin_announcement": "📣 অ্যাডমিনের ঘোষণা 📣", "back_button": "⬅️ পিছনে",
+        "admin_announcement": "📣 অ্যাডমিনের ঘোষণা 📣",
         "number_message": "আপনার নম্বরটি হলো: `{number}`\n\nএই নম্বরটি **{minutes} মিনিট** পর অটো রিলিজ হয়ে যাবে। অনুগ্রহ করে দ্রুত কাজ সম্পন্ন করুন।",
         "otp_received_button": "✅ OTP পেয়েছি", "otp_not_received_button": "❌ OTP আসেনি",
         "number_released": "✅ ধন্যবাদ! আপনার নম্বরটি সফলভাবে রিলিজ করা হয়েছে।",
@@ -88,11 +88,50 @@ LANG_TEXT = {
         "reported_numbers_header": "--- রিপোর্ট করা নম্বর ---",
         "no_expired_numbers": "👍 কোনো অব্যবহৃত/মেয়াদোত্তীর্ণ নম্বর নেই।",
         "expired_numbers_header": "--- মেয়াদোত্তীর্ণ নম্বর ---",
+    },
+    'en': {
+        "welcome": "👋 **Welcome, {first_name}!**\n\nChoose an option from the keyboard below.",
+        "choose_service": "🔢 Which service do you need a number for? Please choose:",
+        "stats_header": "📊 **Your Statistics**", "strikes": "Strikes",
+        "status_banned": "Account Status: Your ban will be removed after {time_left}.",
+        "status_normal": "Status: Normal User", "stats_not_found": "Your statistics were not found.",
+        "support_prompt": "📞 Click the button below for support.", "support_button": "Contact Support",
+        "unknown_command": "🤔 Sorry, I didn't understand the command.", "choose_language": "Please select your language:",
+        "lang_changed_bn": "✅ আপনার ভাষা সফলভাবে 'বাংলা' করা হয়েছে।",
+        "lang_changed_en": "✅ Language successfully changed to 'English'.",
+        "searching_number": "🔍 Searching for a **{service}** number for you...",
+        "no_number_available": "❌ **Sorry, out of numbers!** ❌\n\nThe admin will add new numbers soon.\n⏳ Please try again later.",
+        "new_numbers_broadcast": "🎉 **Good News! New Numbers Added!** 🎉\n\n**Date:** {date}\n\nGet yours now!",
+        "admin_panel_welcome": "👑 **Welcome to the Admin Panel** 👑", "guideline_title": "📜 **Admin Guideline** 📜",
+        "guideline_text": "`➕ Add Numbers`\nClick `/add` or the button, then send numbers per line separated by a comma.\n*Example:* `+1...,Facebook`\n\n`🗑️ Delete Number`\n`/delnumber [number]`\n\n`♻️ Review Numbers`\n`/view_reported` - View reported numbers.\n`/view_expired` - View expired numbers.\n`/reactivate [number]` - Reactivate a number.\n\n`📣 Broadcast`\nClick `/broadcast` or the button.\n\n`🗑️ Delete Broadcast`\n`/delbroadcast` - Delete the last broadcast.\n\n`🚫 Ban/Unban`\n`/ban [User ID]`\n`/unban [User ID]`",
+        "ask_for_numbers": "✍️ Send the numbers. Format: `+12345,Facebook`",
+        "numbers_added_success": "✅ Successfully added {count} new numbers.",
+        "numbers_added_fail": "❌ No valid numbers found.",
+        "user_banned_success": "✅ User {user_id} has been banned.",
+        "user_unbanned_success": "✅ User {user_id} has been unbanned.",
+        "user_not_found": "❌ User {user_id} not found.",
+        "ask_broadcast_message": "📣 Send your broadcast message:",
+        "broadcast_sent": "✅ Message sent to {count} users.",
+        "broadcast_deleted": "✅ The last broadcast has been successfully deleted.",
+        "admin_announcement": "📣 Admin Announcement 📣",
+        "number_message": "Your number is: `{number}`\n\nThis number will be auto-released after **{minutes} minutes**. Please complete your task quickly.",
+        "otp_received_button": "✅ OTP Received", "otp_not_received_button": "❌ OTP Not Received",
+        "number_released": "✅ Thank you! Your number has been released successfully.",
+        "number_reported": "⚠️ Thank you for reporting the number. We are assigning you a new one.",
+        "cooldown_message": "🚫 You are making requests too quickly. Please try again in {seconds} seconds.",
+        "user_is_banned": "🚫 **Your account has been banned.**\nYou cannot use the bot due to a policy violation.\n\n**Reason:** Spamming.\nTry again after the ban duration expires.",
+        "strike_warning_1": "⚠️ **Warning (Strike 1/3)!**\nYou did not use the number `{number}` within the specified time. Please be careful next time.",
+        "strike_warning_2": "🚨 **Final Warning (Strike 2/3)!**\nYou have again left a number unused. One more mistake will result in your account being **banned for {ban_hours} hours**.",
+        "strike_ban_message": "🚫 **Account Banned!**\nDue to repeatedly ignoring warnings and wasting numbers, our anti-spam system has **banned you for {ban_hours} hours**. Your account will be automatically reactivated after this period.",
+        "number_deleted_success": "✅ Number `{number}` has been successfully deleted.",
+        "number_not_found_db": "❌ Number `{number}` was not found in the database.",
+        "number_reactivated_success": "✅ Number `{number}` has been reactivated.",
+        "no_reported_numbers": "👍 No reported numbers found.",
+        "reported_numbers_header": "--- Reported Numbers ---",
+        "no_expired_numbers": "👍 No unused/expired numbers found.",
+        "expired_numbers_header": "--- Expired Numbers ---",
     }
 }
-en_text = {k: v.replace('বাংলা', 'English').replace('বাংলায়', 'English') for k, v in LANG_TEXT['bn'].items()}
-LANG_TEXT['en'] = en_text
-
 # -----------------------------------------------------------------------------
 # |                      লগিং ও সার্ভার সেটআপ                       |
 # -----------------------------------------------------------------------------
@@ -114,20 +153,17 @@ async def setup_database(app: Application):
     try:
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
-                logger.info("Creating 'users' table if not exists...")
                 await acur.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         user_id BIGINT PRIMARY KEY, first_name VARCHAR(255), strikes INT DEFAULT 0,
                         is_banned BOOLEAN DEFAULT FALSE, ban_until TIMESTAMP WITH TIME ZONE,
                         language VARCHAR(5) DEFAULT 'bn', last_broadcast_id BIGINT,
                         cooldown_until TIMESTAMP WITH TIME ZONE);""")
-                logger.info("Creating 'numbers' table if not exists...")
                 await acur.execute("""
                     CREATE TABLE IF NOT EXISTS numbers (
                         id SERIAL PRIMARY KEY, phone_number VARCHAR(25) UNIQUE NOT NULL,
                         service VARCHAR(50) NOT NULL, status VARCHAR(20) DEFAULT 'available',
                         assigned_to_id BIGINT, assigned_at TIMESTAMP WITH TIME ZONE, message_id BIGINT);""")
-                logger.info("Creating index on 'numbers' table if not exists...")
                 await acur.execute("CREATE INDEX IF NOT EXISTS numbers_status_service_idx ON numbers (status, service);")
         logger.info("SUCCESS: Database schema is up-to-date.")
         await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ **Bot Deployed/Restarted Successfully!**", parse_mode=ParseMode.MARKDOWN)
@@ -142,8 +178,13 @@ async def get_user_lang(user_id: int) -> str:
                 result = await acur.fetchone()
                 return result[0] if result and result[0] else 'bn'
     except Exception: return 'bn'
-def get_main_reply_keyboard(user_id: int):
-    keyboard = [[GET_NUMBER_TEXT], [MY_STATS_TEXT, SUPPORT_TEXT, LANGUAGE_TEXT]]
+def get_main_reply_keyboard(lang: str, user_id: int):
+    keyboard = [
+        [GET_NUMBER_TEXT],
+        [MY_STATS_TEXT],
+        [SUPPORT_TEXT],
+        [LANGUAGE_TEXT]
+    ]
     if user_id == ADMIN_USER_ID: keyboard.append([ADMIN_PANEL_TEXT])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="Choose an option...")
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -162,7 +203,7 @@ async def number_expiration_job(context: ContextTypes.DEFAULT_TYPE):
                 await acur.execute("UPDATE numbers SET status = 'expired', assigned_to_id = NULL, assigned_at = NULL, message_id = NULL WHERE phone_number = %s", (number,))
                 await acur.execute("UPDATE users SET strikes = strikes + 1 WHERE user_id = %s RETURNING strikes", (user_id,))
                 new_strikes = (await acur.fetchone())['strikes']
-                try: await context.bot.edit_message_text("⌛️ এই নম্বরের মেয়াদ শেষ।", chat_id=user_id, message_id=number_data['message_id'])
+                try: await context.bot.edit_message_text(LANG_TEXT[lang]["number_expired_message"], chat_id=user_id, message_id=number_data['message_id'])
                 except (BadRequest, Forbidden): pass
                 if new_strikes >= MAX_STRIKES:
                     ban_until = datetime.datetime.now(pytz.utc) + datetime.timedelta(hours=BAN_HOURS)
@@ -179,15 +220,16 @@ async def daily_cleanup_job(context: ContextTypes.DEFAULT_TYPE):
                 unbanned_users = await acur.fetchall()
                 for user in unbanned_users:
                     logger.info(f"Auto-unbanned user: {user['user_id']}")
-                    try: await context.bot.send_message(user['user_id'], "✅ আপনার অ্যাকাউন্টের ব্যান তুলে নেওয়া হয়েছে। আপনি এখন বট ব্যবহার করতে পারবেন।")
+                    lang = await get_user_lang(user['user_id'])
+                    try: await context.bot.send_message(user['user_id'], LANG_TEXT[lang]["account_unbanned_message"])
                     except (Forbidden, BadRequest): logger.warning(f"Could not notify unbanned user {user['user_id']}.")
     except Exception as e: logger.error(f"Daily cleanup job failed: {e}")
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     async with await get_db_conn() as aconn:
-        async with aconn.cursor() as acur: await acur.execute("INSERT INTO users (user_id, first_name) VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET first_name = EXCLUDED.first_name", (user.id, user.first_name))
+        async with aconn.cursor() as acur: await acur.execute("INSERT INTO users (user_id, first_name, language) VALUES (%s, %s, 'bn') ON CONFLICT (user_id) DO UPDATE SET first_name = EXCLUDED.first_name", (user.id, user.first_name))
     lang = await get_user_lang(user.id)
-    await update.message.reply_text(text=LANG_TEXT[lang]['welcome'].format(first_name=user.first_name), reply_markup=get_main_reply_keyboard(user.id), parse_mode=ParseMode.MARKDOWN)
+    await update.message.reply_text(text=LANG_TEXT[lang]['welcome'].format(first_name=user.first_name), reply_markup=get_main_reply_keyboard(lang, user.id), parse_mode=ParseMode.MARKDOWN)
 async def check_user_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     user_id = update.effective_user.id; lang = await get_user_lang(user_id)
     async with await get_db_conn() as aconn:
@@ -226,9 +268,8 @@ async def handle_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton(text=LANG_TEXT[lang]['support_button'], url=f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}")]])
     await update.message.reply_text(LANG_TEXT[lang]['support_prompt'], reply_markup=reply_markup)
 async def handle_language_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = await get_user_lang(update.effective_user.id)
     keyboard = [[InlineKeyboardButton("🇧🇩 বাংলা", callback_data="set_lang_bn"), InlineKeyboardButton("🇬🇧 English", callback_data="set_lang_en")]]
-    await update.message.reply_text(LANG_TEXT[lang]['choose_language'], reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("Please select your language:\nঅনুগ্রহ করে আপনার ভাষা নির্বাচন করুন:", reply_markup=InlineKeyboardMarkup(keyboard))
 async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query; await query.answer()
     user = query.from_user; data = query.data; lang = await get_user_lang(user.id)
@@ -236,7 +277,7 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
         new_lang = data.split("_")[-1]
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur: await acur.execute("UPDATE users SET language = %s WHERE user_id = %s", (new_lang, user.id))
-        await query.edit_message_text(LANG_TEXT[new_lang]['lang_changed']); return
+        await query.edit_message_text(LANG_TEXT[new_lang][f'lang_changed_{new_lang}']); return
     if not await check_user_status(update, context):
         try: await query.message.delete()
         except: pass
@@ -399,18 +440,20 @@ def main() -> None:
     job_queue = bot_app.job_queue
     job_queue.run_daily(daily_cleanup_job, time=datetime.time(hour=0, minute=5, tzinfo=pytz.UTC))
     bot_app.add_error_handler(error_handler)
-    admin_conv_handler = ConversationHandler(
-        entry_points=[
-            CallbackQueryHandler(admin_panel_callback, pattern='^admin_add_numbers$'),
-            CommandHandler("add", lambda u,c: admin_panel_callback(u.callback_query,c)),
-            CallbackQueryHandler(admin_panel_callback, pattern='^admin_broadcast$'),
-            CommandHandler("broadcast", lambda u,c: admin_panel_callback(u.callback_query,c))
-        ],
-        states={ADDING_NUMBERS: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_add_numbers_convo)],
-                BROADCAST_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_broadcast_convo)],},
-        fallbacks=[CommandHandler("start", start_command)], per_message=False,
+    
+    add_num_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(admin_panel_callback, pattern='^admin_add_numbers$')],
+        states={ADDING_NUMBERS: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_add_numbers_convo)]},
+        fallbacks=[CommandHandler("start", start_command)]
     )
-    bot_app.add_handler(admin_conv_handler)
+    broadcast_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(admin_panel_callback, pattern='^admin_broadcast$')],
+        states={BROADCAST_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_broadcast_convo)]},
+        fallbacks=[CommandHandler("start", start_command)]
+    )
+    
+    bot_app.add_handler(add_num_conv)
+    bot_app.add_handler(broadcast_conv)
     bot_app.add_handler(CommandHandler("start", start_command))
     bot_app.add_handler(CommandHandler("ban", ban_command)); bot_app.add_handler(CommandHandler("unban", unban_command))
     bot_app.add_handler(CommandHandler("delnumber", delnumber_command)); bot_app.add_handler(CommandHandler("delbroadcast", delete_last_broadcast))
