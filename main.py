@@ -24,7 +24,7 @@ from telegram.error import Forbidden, BadRequest, Conflict
 # |                      ⚠️ আপনার সকল গোপন তথ্য এখানে ⚠️                      |
 # -----------------------------------------------------------------------------
 BOT_TOKEN = "7925556669:AAE5F9zUGOK37niSd0x-YEQX8rn-xGd8Pl8"
-DATABASE_URL = "postgresql://number_bot_running_user:kpQLHQIuZF68uc7fMlgFiaNoV7JzemyL@dpg-d21qr663jp1c73871p20-a/number_bot_running" # এখানে আপনার ডাটাবেসের সঠিক URL টি দিন
+DATABASE_URL = "postgresql://number_bot_running_user:kpQLHQIuZF68uc7fMlgFiaNoV7JzemyL@dpg-d21qr663jp1c73871p20-a/number_bot_running"
 ADMIN_USER_ID = 7052442701
 SUPPORT_USERNAME = "@NgRony"
 
@@ -45,7 +45,7 @@ ADMIN_PANEL_TEXT = "👑 Admin Panel 👑"
 ADDING_NUMBERS = 1
 BROADCAST_MESSAGE = 2
 
-# --- সম্পূর্ণ বহুভাষিক টেক্সট (সঠিক অনুবাদ সহ) ---
+# --- সম্পূর্ণ বহুভাষিক টেক্সট (সব ভুল সংশোধন করা হয়েছে) ---
 LANG_TEXT = {
     'bn': {
         "welcome": "👋 **স্বাগতম, {first_name}!**\n\nনিচের কীবোর্ড থেকে একটি অপশন বেছে নিন।",
@@ -73,6 +73,8 @@ LANG_TEXT = {
         "broadcast_deleted": "✅ সর্বশেষ ঘোষণাটি সফলভাবে মুছে ফেলা হয়েছে।",
         "admin_announcement": "📣 অ্যাডমিনের ঘোষণা 📣",
         "number_message": "আপনার নম্বরটি হলো: `{number}`\n\nএই নম্বরটি **{minutes} মিনিট** পর অটো রিলিজ হয়ে যাবে। অনুগ্রহ করে দ্রুত কাজ সম্পন্ন করুন।",
+        "number_expired_message": "⌛️ এই নম্বরের মেয়াদ শেষ।",
+        "account_unbanned_message": "✅ আপনার অ্যাকাউন্টের ব্যান তুলে নেওয়া হয়েছে। আপনি এখন বট ব্যবহার করতে পারবেন।",
         "otp_received_button": "✅ OTP পেয়েছি", "otp_not_received_button": "❌ OTP আসেনি",
         "number_released": "✅ ধন্যবাদ! আপনার নম্বরটি সফলভাবে রিলিজ করা হয়েছে।",
         "number_reported": "⚠️ নম্বরটি রিপোর্ট করার জন্য ধন্যবাদ। আমরা আপনাকে একটি নতুন নম্বর দিচ্ছি।",
@@ -115,6 +117,8 @@ LANG_TEXT = {
         "broadcast_deleted": "✅ The last broadcast has been successfully deleted.",
         "admin_announcement": "📣 Admin Announcement 📣",
         "number_message": "Your number is: `{number}`\n\nThis number will be auto-released after **{minutes} minutes**. Please complete your task quickly.",
+        "number_expired_message": "⌛️ This number has expired.",
+        "account_unbanned_message": "✅ Your account has been unbanned. You can now use the bot.",
         "otp_received_button": "✅ OTP Received", "otp_not_received_button": "❌ OTP Not Received",
         "number_released": "✅ Thank you! Your number has been released successfully.",
         "number_reported": "⚠️ Thank you for reporting the number. We are assigning you a new one.",
@@ -178,20 +182,15 @@ async def get_user_lang(user_id: int) -> str:
                 result = await acur.fetchone()
                 return result[0] if result and result[0] else 'bn'
     except Exception: return 'bn'
-def get_main_reply_keyboard(lang: str, user_id: int):
-    keyboard = [
-        [GET_NUMBER_TEXT],
-        [MY_STATS_TEXT],
-        [SUPPORT_TEXT],
-        [LANGUAGE_TEXT]
-    ]
+def get_main_reply_keyboard(user_id: int):
+    keyboard = [[GET_NUMBER_TEXT], [MY_STATS_TEXT], [SUPPORT_TEXT], [LANGUAGE_TEXT]]
     if user_id == ADMIN_USER_ID: keyboard.append([ADMIN_PANEL_TEXT])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="Choose an option...")
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     if isinstance(context.error, Conflict):
         logger.warning("Conflict error detected. Another instance is running. Shutting down this instance.")
         os._exit(1)
-    else: logger.error("Exception while handling an update:", exc_info=context.error)
+    else: logger.error(f"Exception while handling an update: {context.error}", exc_info=context.error)
 async def number_expiration_job(context: ContextTypes.DEFAULT_TYPE):
     job = context.job; user_id, number, service = job.data
     lang = await get_user_lang(user_id)
@@ -229,7 +228,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur: await acur.execute("INSERT INTO users (user_id, first_name, language) VALUES (%s, %s, 'bn') ON CONFLICT (user_id) DO UPDATE SET first_name = EXCLUDED.first_name", (user.id, user.first_name))
     lang = await get_user_lang(user.id)
-    await update.message.reply_text(text=LANG_TEXT[lang]['welcome'].format(first_name=user.first_name), reply_markup=get_main_reply_keyboard(lang, user.id), parse_mode=ParseMode.MARKDOWN)
+    await update.message.reply_text(text=LANG_TEXT[lang]['welcome'].format(first_name=user.first_name), reply_markup=get_main_reply_keyboard(user.id), parse_mode=ParseMode.MARKDOWN)
 async def check_user_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     user_id = update.effective_user.id; lang = await get_user_lang(user_id)
     async with await get_db_conn() as aconn:
@@ -317,15 +316,16 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def admin_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_USER_ID: return
     lang = await get_user_lang(ADMIN_USER_ID)
-    keyboard = [[InlineKeyboardButton("➕ নম্বর যোগ করুন", callback_data="admin_add_numbers"), InlineKeyboardButton("📣 ঘোষণা দিন", callback_data="admin_broadcast")], [InlineKeyboardButton("📜 গাইডলাইন দেখুন", callback_data="admin_guideline")]]
+    keyboard = [[InlineKeyboardButton("➕ নম্বর যোগ করুন", callback_data="admin_add_numbers")], [InlineKeyboardButton("📣 ঘোষণা দিন", callback_data="admin_broadcast")], [InlineKeyboardButton("📜 গাইডলাইন দেখুন", callback_data="admin_guideline")]]
     await update.message.reply_text(LANG_TEXT[lang]['admin_panel_welcome'], reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
 async def admin_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query; await query.answer()
     if query.from_user.id != ADMIN_USER_ID: return
     lang = await get_user_lang(ADMIN_USER_ID)
-    if query.data == "admin_add_numbers": await query.message.reply_text(LANG_TEXT[lang]['ask_for_numbers']); return ADDING_NUMBERS
-    elif query.data == "admin_broadcast": await query.message.reply_text(LANG_TEXT[lang]['ask_broadcast_message']); return BROADCAST_MESSAGE
-    elif query.data == "admin_guideline": await query.message.reply_text(f"**{LANG_TEXT[lang]['guideline_title']}**\n\n{LANG_TEXT[lang]['guideline_text']}", parse_mode=ParseMode.MARKDOWN)
+    data = query.data
+    if data == "admin_add_numbers": await query.message.reply_text(LANG_TEXT[lang]['ask_for_numbers']); return ADDING_NUMBERS
+    elif data == "admin_broadcast": await query.message.reply_text(LANG_TEXT[lang]['ask_broadcast_message']); return BROADCAST_MESSAGE
+    elif data == "admin_guideline": await query.message.reply_text(f"**{LANG_TEXT[lang]['guideline_title']}**\n\n{LANG_TEXT[lang]['guideline_text']}", parse_mode=ParseMode.MARKDOWN)
     return ConversationHandler.END
 async def handle_add_numbers_convo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = await get_user_lang(ADMIN_USER_ID)
@@ -348,20 +348,24 @@ async def broadcast_message(context: ContextTypes.DEFAULT_TYPE, message_text: st
     lang = await get_user_lang(ADMIN_USER_ID)
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
-            await acur.execute("SELECT user_id, last_broadcast_id FROM users")
+            await acur.execute("SELECT user_id, last_broadcast_id, language FROM users")
             all_users = await acur.fetchall()
     sent_count = 0
     for user_data in all_users:
-        user_id = user_data['user_id']
+        user_id, lang_code = user_data['user_id'], user_data['language']
         try:
-            sent_message = await context.bot.send_message(chat_id=user_id, text=message_text, parse_mode=ParseMode.MARKDOWN)
+            current_message = message_text
+            if "সুখবর" in message_text:
+                current_message = LANG_TEXT[lang_code]['new_numbers_broadcast'].format(date=datetime.datetime.now().strftime("%d %B, %Y"))
+            
+            sent_message = await context.bot.send_message(chat_id=user_id, text=current_message, parse_mode=ParseMode.MARKDOWN)
             async with aconn.cursor() as acur_update:
                 await acur_update.execute("UPDATE users SET last_broadcast_id = %s WHERE user_id = %s", (sent_message.message_id, user_id))
             sent_count += 1
         except Forbidden: logger.warning(f"User {user_id} blocked the bot.")
         except Exception as e: logger.error(f"Failed broadcast to {user_id}: {e}")
         await asyncio.sleep(0.05)
-    await context.bot.send_message(ADMIN_USER_ID, LANG_TEXT[lang]['broadcast_sent'].format(count=sent_count))
+    await context.bot.send_message(ADMIN_USER_ID, LANG_TEXT['bn']['broadcast_sent'].format(count=sent_count))
 async def delete_last_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_USER_ID: return
     lang = await get_user_lang(ADMIN_USER_ID)
@@ -370,8 +374,11 @@ async def delete_last_broadcast(update: Update, context: ContextTypes.DEFAULT_TY
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT user_id, last_broadcast_id FROM users WHERE last_broadcast_id IS NOT NULL")
             users_with_broadcast = await acur.fetchall()
+    deleted_count = 0
     for user in users_with_broadcast:
-        try: await context.bot.delete_message(chat_id=user['user_id'], message_id=user['last_broadcast_id'])
+        try: 
+            await context.bot.delete_message(chat_id=user['user_id'], message_id=user['last_broadcast_id'])
+            deleted_count +=1
         except (BadRequest, Forbidden): pass
         await asyncio.sleep(0.05)
     async with aconn.cursor() as acur: await acur.execute("UPDATE users SET last_broadcast_id = NULL")
@@ -431,8 +438,7 @@ async def view_numbers_by_status(update: Update, context: ContextTypes.DEFAULT_T
             numbers = await acur.fetchall()
     if not numbers: await update.message.reply_text(no_numbers_msg); return
     message = f"**{header}**\n\n"
-    for num in numbers:
-        message += f"`{num['phone_number']}` - *{num['service']}*\n"
+    for num in numbers: message += f"`{num['phone_number']}` - *{num['service']}*\n"
     await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
 def main() -> None:
     threading.Thread(target=run_flask, daemon=True).start()
@@ -444,12 +450,12 @@ def main() -> None:
     add_num_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_panel_callback, pattern='^admin_add_numbers$')],
         states={ADDING_NUMBERS: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_add_numbers_convo)]},
-        fallbacks=[CommandHandler("start", start_command)]
+        fallbacks=[CommandHandler("start", start_command)], per_message=False
     )
     broadcast_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_panel_callback, pattern='^admin_broadcast$')],
         states={BROADCAST_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_broadcast_convo)]},
-        fallbacks=[CommandHandler("start", start_command)]
+        fallbacks=[CommandHandler("start", start_command)], per_message=False
     )
     
     bot_app.add_handler(add_num_conv)
