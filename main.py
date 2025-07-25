@@ -70,16 +70,26 @@ async def setup_database(app: Application):
 # |                      টেলিগ্রাম বটের সকল হ্যান্ডলার                       |
 # -----------------------------------------------------------------------------
 
-# --- মেনু তৈরির ফাংশন ---
+# --- মেনু তৈরির ফাংশন (আপনার অনুরোধ অনুযায়ী পরিবর্তিত) ---
 async def get_main_menu_keyboard(user_id):
+    # প্রধান মেনুতে এখন শুধু একটি "সকল অপশন" বাটন থাকবে
+    keyboard = [
+        [InlineKeyboardButton("🎛️ সকল অপশন দেখুন 🎛️", callback_data="show_all_options")]
+    ]
+    # ব্যবহারকারী যদি অ্যাডমিন হন, তবেই কেবল অ্যাডমিন প্যানেল বাটনটি দেখানো হবে
+    if user_id == ADMIN_USER_ID:
+        keyboard.append([InlineKeyboardButton("👑 Admin Panel 👑", callback_data="admin_panel")])
+    return InlineKeyboardMarkup(keyboard)
+
+async def get_all_options_keyboard():
+    # এই ফাংশনটি আগের সব বাটনগুলো দেখাবে
     keyboard = [
         [InlineKeyboardButton("💎 Get Facebook Number", callback_data="get_number_facebook")],
         [InlineKeyboardButton("✈️ Get Telegram Number", callback_data="get_number_telegram")],
         [InlineKeyboardButton("💬 Get WhatsApp Number", callback_data="get_number_whatsapp")],
-        [InlineKeyboardButton("📞 Support", url=f"https://t.me/{SUPPORT_USERNAME}"), InlineKeyboardButton("📊 My Stats", callback_data="my_stats")]
+        [InlineKeyboardButton("📞 Support", url=f"https://t.me/{SUPPORT_USERNAME}"), InlineKeyboardButton("📊 My Stats", callback_data="my_stats")],
+        [InlineKeyboardButton("⬅️ প্রধান মেনু", callback_data="back_to_main")] # পিছনে যাওয়ার বাটন
     ]
-    if user_id == ADMIN_USER_ID:
-        keyboard.append([InlineKeyboardButton("👑 Admin Panel 👑", callback_data="admin_panel")])
     return InlineKeyboardMarkup(keyboard)
 
 async def get_admin_panel_keyboard():
@@ -125,9 +135,18 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_id = query.from_user.id
     data = query.data
     logger.info(f"Button '{data}' pressed by user {user_id}")
+    
+    # --- নতুন "সকল অপশন" বাটন হ্যান্ডেল করা ---
+    if data == "show_all_options":
+        reply_markup = await get_all_options_keyboard()
+        await query.edit_message_text(
+            text="⚙️ **সকল অপশন**\n\nঅনুগ্রহ করে আপনার প্রয়োজনীয় সেবাটি বেছে নিন:",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
 
     # --- প্রধান মেনু থেকে আসা ডেটা হ্যান্ডেল করা ---
-    if data.startswith("get_number_"):
+    elif data.startswith("get_number_"):
         service = data.split("_")[2].capitalize()
         
         async with await get_db_conn() as aconn:
@@ -170,8 +189,9 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
                         message += f"\nনিষেধাজ্ঞা শেষ হবে: `{stats['ban_until'].strftime('%Y-%m-%d %H:%M:%S')}`"
                 else:
                     message = "আপনার পরিসংখ্যান খুঁজে পাওয়া যায়নি। অনুগ্রহ করে /start কমান্ড দিন।"
-
-        reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ পিছনে", callback_data="back_to_main")]])
+        
+        # এখানে 'পিছনে' বাটনটিকে 'back_to_main' এর পরিবর্তে 'show_all_options' এ পাঠানো হলো যাতে এটি ড্রপ-ডাউন মেনুতে ফিরে যায়
+        reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ পিছনে", callback_data="show_all_options")]])
         await query.edit_message_text(text=message, reply_markup=reply_markup, parse_mode='Markdown')
 
     elif data == "admin_panel":
