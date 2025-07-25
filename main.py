@@ -90,6 +90,7 @@ LANG_TEXT = {
         "reported_numbers_header": "--- রিপোর্ট করা নম্বর ---",
         "no_expired_numbers": "👍 কোনো অব্যবহৃত/মেয়াদোত্তীর্ণ নম্বর নেই।",
         "expired_numbers_header": "--- মেয়াদোত্তীর্ণ নম্বর ---",
+        "ping_reply": "Pong! বট সচল আছে। ✅"
     },
     'en': {
         "welcome": "👋 **Welcome, {first_name}!**\n\nChoose an option from the keyboard below.",
@@ -134,6 +135,7 @@ LANG_TEXT = {
         "reported_numbers_header": "--- Reported Numbers ---",
         "no_expired_numbers": "👍 No unused/expired numbers found.",
         "expired_numbers_header": "--- Expired Numbers ---",
+        "ping_reply": "Pong! Bot is active. ✅"
     }
 }
 # -----------------------------------------------------------------------------
@@ -146,7 +148,6 @@ logger = logging.getLogger(__name__)
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def keep_alive(): return "Bot is alive!"
-def run_flask(): flask_app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
 
 # -----------------------------------------------------------------------------
 # |                         ডাটাবেস এবং প্রধান ফাংশন                          |
@@ -242,6 +243,9 @@ async def check_user_status(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                     seconds_left = int((user_data['cooldown_until'] - datetime.datetime.now(pytz.utc)).total_seconds())
                     await effective_message.reply_text(LANG_TEXT[lang]['cooldown_message'].format(seconds=seconds_left)); return False
     return True
+async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = await get_user_lang(update.effective_user.id)
+    await update.message.reply_text(LANG_TEXT[lang]['ping_reply'])
 async def handle_get_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_user_status(update, context): return
     lang = await get_user_lang(update.effective_user.id)
@@ -440,8 +444,9 @@ async def view_numbers_by_status(update: Update, context: ContextTypes.DEFAULT_T
     message = f"**{header}**\n\n"
     for num in numbers: message += f"`{num['phone_number']}` - *{num['service']}*\n"
     await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
-def main() -> None:
-    threading.Thread(target=run_flask, daemon=True).start()
+
+def run_bot():
+    """This function sets up and runs the bot."""
     bot_app = Application.builder().token(BOT_TOKEN).post_init(setup_database).build()
     job_queue = bot_app.job_queue
     job_queue.run_daily(daily_cleanup_job, time=datetime.time(hour=0, minute=5, tzinfo=pytz.UTC))
@@ -461,6 +466,7 @@ def main() -> None:
     bot_app.add_handler(add_num_conv)
     bot_app.add_handler(broadcast_conv)
     bot_app.add_handler(CommandHandler("start", start_command))
+    bot_app.add_handler(CommandHandler("ping", ping_command)) # টেস্ট করার জন্য নতুন কমান্ড
     bot_app.add_handler(CommandHandler("ban", ban_command)); bot_app.add_handler(CommandHandler("unban", unban_command))
     bot_app.add_handler(CommandHandler("delnumber", delnumber_command)); bot_app.add_handler(CommandHandler("delbroadcast", delete_last_broadcast))
     bot_app.add_handler(CommandHandler("reactivate", reactivate_command))
@@ -474,7 +480,15 @@ def main() -> None:
     bot_app.add_handler(CallbackQueryHandler(admin_panel_callback, pattern='^admin_guideline$'))
     bot_app.add_handler(CallbackQueryHandler(handle_button_press))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, start_command))
+    
     logger.info("Telegram Bot starting polling...")
     bot_app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+
 if __name__ == "__main__":
-    main()
+    # Flask সার্ভারকে একটি আলাদা থ্রেডে চালানো হচ্ছে
+    flask_thread = threading.Thread(target=lambda: flask_app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000))))
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    # মূল থ্রেডে টেলিগ্রাম বট চালানো হচ্ছে
+    run_bot()
