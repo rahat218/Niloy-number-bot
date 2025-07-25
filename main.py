@@ -45,7 +45,7 @@ ADMIN_PANEL_TEXT = "👑 Admin Panel 👑"
 ADDING_NUMBERS = 1
 BROADCAST_MESSAGE = 2
 
-# --- সম্পূর্ণ বহুভাষিক টেক্সট (নতুন টেক্সট সহ) ---
+# --- সম্পূর্ণ বহুভাষিক টেক্সট (ত্রুটি সংশোধন করা হয়েছে) ---
 LANG_TEXT = {
     'bn': {
         "welcome": "👋 **স্বাগতম, {first_name}!**\n\nনিচের কীবোর্ড থেকে একটি অপশন বেছে নিন।",
@@ -87,18 +87,18 @@ LANG_TEXT = {
         "reported_numbers_header": "--- রিপোর্ট করা নম্বর ---",
         "no_expired_numbers": "👍 কোনো অব্যবহৃত/মেয়াদোত্তীর্ণ নম্বর নেই।",
         "expired_numbers_header": "--- মেয়াদোত্তীর্ণ নম্বর ---",
-    },
-    'en': {k: v for k, v in LANG_TEXT['bn'].items()}
+    }
 }
+# ইংরেজি ভাষার জন্য একটি ফলব্যাক তৈরি করা
+en_text = {k: v.replace('বাংলা', 'English').replace('বাংলায়', 'English') for k, v in LANG_TEXT['bn'].items()}
+LANG_TEXT['en'] = en_text
 
 # -----------------------------------------------------------------------------
-# |                      লগিং ও সার্ভার সেটআপ (আপডেট করা হয়েছে)                     |
+# |                      লগিং ও সার্ভার সেটআপ                       |
 # -----------------------------------------------------------------------------
-# শুধুমাত্র প্রয়োজনীয় লগ দেখানোর জন্য কনফিগারেশন
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
-# অপ্রয়োজনীয় লাইব্রেরি লগ বন্ধ করা
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("telegram.ext").setLevel(logging.WARNING)
 
@@ -108,10 +108,6 @@ flask_app = Flask(__name__)
 @flask_app.route('/')
 def keep_alive(): return "Bot is alive!"
 def run_flask(): flask_app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
-
-# ... (বাকি কোড অপরিবর্তিত) ...
-# The rest of the code remains exactly the same as the previous version.
-# I will paste it all for completeness as requested.
 
 # -----------------------------------------------------------------------------
 # |                         ডাটাবেস এবং প্রধান ফাংশন                          |
@@ -232,7 +228,9 @@ async def daily_cleanup_job(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Daily cleanup job failed: {e}")
 
-# ... (The rest of the handlers and functions are identical to the previous version) ...
+# -----------------------------------------------------------------------------
+# |                         USER COMMAND HANDLERS                           |
+# -----------------------------------------------------------------------------
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     async with await get_db_conn() as aconn:
@@ -253,13 +251,14 @@ async def check_user_status(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             user_data = await acur.fetchone()
 
             if user_data:
+                effective_message = update.callback_query.message if update.callback_query else update.message
                 if user_data['is_banned']:
-                    await update.message.reply_text(LANG_TEXT[lang]['user_is_banned'])
+                    await effective_message.reply_text(LANG_TEXT[lang]['user_is_banned'])
                     return False
                 
                 if user_data['cooldown_until'] and user_data['cooldown_until'] > datetime.datetime.now(pytz.utc):
                     seconds_left = int((user_data['cooldown_until'] - datetime.datetime.now(pytz.utc)).total_seconds())
-                    await update.message.reply_text(LANG_TEXT[lang]['cooldown_message'].format(seconds=seconds_left))
+                    await effective_message.reply_text(LANG_TEXT[lang]['cooldown_message'].format(seconds=seconds_left))
                     return False
     return True
 
@@ -313,8 +312,7 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text(LANG_TEXT[new_lang]['lang_changed'])
         return
 
-    effective_message = query.message or query
-    if not await check_user_status(effective_message, context):
+    if not await check_user_status(update, context):
         try:
            await query.message.delete()
         except:
@@ -367,9 +365,11 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await acur.execute("UPDATE numbers SET status = 'reported', assigned_to_id = NULL, assigned_at = NULL, message_id = NULL WHERE phone_number = %s AND assigned_to_id = %s", (number, user.id))
         jobs = context.job_queue.get_jobs_by_name(f"exp_{user.id}_{number}")
         for job in jobs: job.schedule_removal()
-        await handle_get_number(query, context)
+        await handle_get_number(update, context)
 
-# All admin handlers and other functions remain the same
+# -----------------------------------------------------------------------------
+# |                         ADMIN COMMAND HANDLERS                          |
+# -----------------------------------------------------------------------------
 async def admin_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_USER_ID: return
     lang = await get_user_lang(ADMIN_USER_ID)
@@ -414,7 +414,8 @@ async def handle_add_numbers_convo(update: Update, context: ContextTypes.DEFAULT
     return ConversationHandler.END
 
 async def handle_broadcast_convo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message_to_broadcast = f"**{LANG_TEXT['bn']['admin_announcement']}**\n\n{update.message.text}"
+    lang = await get_user_lang(ADMIN_USER_ID)
+    message_to_broadcast = f"**{LANG_TEXT[lang]['admin_announcement']}**\n\n{update.message.text}"
     context.application.create_task(broadcast_message(context, message_to_broadcast))
     return ConversationHandler.END
 
@@ -427,7 +428,7 @@ async def broadcast_message(context: ContextTypes.DEFAULT_TYPE, message_text: st
 
     sent_count = 0
     for user_data in all_users:
-        user_id, last_msg_id = user_data['user_id'], user_data['last_broadcast_id']
+        user_id = user_data['user_id']
         try:
             sent_message = await context.bot.send_message(chat_id=user_id, text=message_text, parse_mode=ParseMode.MARKDOWN)
             async with aconn.cursor() as acur_update:
@@ -541,7 +542,7 @@ async def view_numbers_by_status(update: Update, context: ContextTypes.DEFAULT_T
     await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
 
 # -----------------------------------------------------------------------------
-# |                         ফাইনাল অ্যাপ্লিকেশন চালু করা (আপডেট করা হয়েছে)                     |
+# |                         ফাইনাল অ্যাপ্লিকেশন চালু করা                        |
 # -----------------------------------------------------------------------------
 def main() -> None:
     threading.Thread(target=run_flask, daemon=True).start()
@@ -586,7 +587,6 @@ def main() -> None:
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, start_command))
 
     logger.info("Telegram Bot starting polling...")
-    # 'drop_pending_updates=True' Conflict এরর কমাতে সাহায্য করে
     bot_app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
