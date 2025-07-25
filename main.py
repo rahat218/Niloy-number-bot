@@ -138,10 +138,9 @@ async def find_available_number(service: str):
             return await acur.fetchone()
 
 # -----------------------------------------------------------------------------
-# |                কীবোর্ড এবং মেনু তৈরির ফাংশন (সংশোধিত)                |
+# |                কীবোর্ড এবং মেনু তৈরির ফাংশন                |
 # -----------------------------------------------------------------------------
 def get_main_reply_keyboard(user_id: int):
-    """প্রধান কীবোর্ড তৈরি করে। অ্যাডমিনের জন্য বিশেষ বাটন যোগ করে।"""
     keyboard = [[GET_NUMBER_TEXT], [MY_STATS_TEXT, SUPPORT_TEXT], [LANGUAGE_TEXT]]
     if user_id == ADMIN_USER_ID:
         keyboard.append([ADMIN_PANEL_TEXT])
@@ -150,8 +149,6 @@ def get_main_reply_keyboard(user_id: int):
 # -----------------------------------------------------------------------------
 # |                     কমান্ড এবং বাটন হ্যান্ডলার (সকল)                     |
 # -----------------------------------------------------------------------------
-
-# --- Main Commands & Keyboard Button Handlers ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     async with await get_db_conn() as aconn:
@@ -165,11 +162,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_get_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = await get_user_lang(update.effective_user.id)
-    keyboard = [
-        [InlineKeyboardButton("💎 Facebook", callback_data="get_number_facebook")],
-        [InlineKeyboardButton("✈️ Telegram", callback_data="get_number_telegram")],
-        [InlineKeyboardButton("💬 WhatsApp", callback_data="get_number_whatsapp")],
-    ]
+    keyboard = [[InlineKeyboardButton(s, callback_data=f"get_number_{s.lower()}") for s in ["Facebook", "Telegram", "WhatsApp"]]]
     await update.message.reply_text(LANG_TEXT[lang]['choose_service'], reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def handle_my_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -180,7 +173,7 @@ async def handle_my_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await acur.execute("SELECT strikes, is_banned FROM users WHERE user_id = %s", (user_id,))
             stats = await acur.fetchone()
             if stats:
-                message = f"{LANG_TEXT[lang]['stats_header']}\n\n{LANG_TEXT[lang]['strikes']}: `{stats['strikes']}/{MAX_STRIKES}`\n"
+                message = f"**{LANG_TEXT[lang]['stats_header']}**\n\n{LANG_TEXT[lang]['strikes']}: `{stats['strikes']}/{MAX_STRIKES}`\n"
                 if stats['is_banned']:
                     message += f"{LANG_TEXT[lang]['spam_count']}: `{MAX_STRIKES}/{MAX_STRIKES}`\n{LANG_TEXT[lang]['status_banned'].format(hours=BAN_HOURS)}"
                 else: message += f"{LANG_TEXT[lang]['status_normal']}"
@@ -203,7 +196,6 @@ async def admin_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     keyboard = [[InlineKeyboardButton("➕ নম্বর যোগ করুন", callback_data="admin_add_numbers")], [InlineKeyboardButton("📜 গাইডলাইন দেখুন", callback_data="admin_guideline")]]
     await update.message.reply_text(LANG_TEXT[lang]['admin_panel_welcome'], reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
 
-# --- Admin Panel Conversation Handler ---
 async def admin_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -230,7 +222,6 @@ async def handle_add_numbers_convo(update: Update, context: ContextTypes.DEFAULT
     if count > 0: context.application.create_task(broadcast_new_numbers(context))
     return ConversationHandler.END
 
-# --- General Inline Button Handler ---
 async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query; await query.answer()
     user_id = query.from_user.id; data = query.data
@@ -247,7 +238,6 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
             async with aconn.cursor() as acur: await acur.execute("UPDATE users SET language = %s WHERE user_id = %s", (new_lang, user_id))
         await query.edit_message_text(LANG_TEXT[new_lang]['lang_changed'])
 
-# --- Admin Commands ---
 async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_USER_ID: return
     lang = await get_user_lang(ADMIN_USER_ID)
@@ -273,7 +263,6 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg)
     except (IndexError, ValueError): await update.message.reply_text("ব্যবহার: /unban [User ID]")
 
-# --- Background Tasks & Broadcast ---
 async def broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE):
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur:
@@ -311,31 +300,32 @@ def main() -> None:
     threading.Thread(target=run_flask, daemon=True).start()
     bot_app = Application.builder().token(BOT_TOKEN).post_init(setup_database).build()
     job_queue = bot_app.job_queue
-    job_queue.run_daily(data_cleanup_job, time=datetime.time(hour=21, minute=0, tzinfo=pytz.UTC)) # GMT+6 এর রাত ৩টা
+    job_queue.run_daily(data_cleanup_job, time=datetime.time(hour=21, minute=0, tzinfo=pytz.UTC))
 
     admin_conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_panel_callback, pattern='^admin_add_numbers$')],
         states={ADDING_NUMBERS: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_add_numbers_convo)]},
-        fallbacks=[], per_message=False)
+        fallbacks=[CommandHandler("start", start_command)], per_message=False)
     
     bot_app.add_handler(admin_conv_handler)
     bot_app.add_handler(CommandHandler("start", start_command))
     bot_app.add_handler(CommandHandler("ban", ban_command))
     bot_app.add_handler(CommandHandler("unban", unban_command))
-
+    
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{GET_NUMBER_TEXT}$'), handle_get_number))
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{MY_STATS_TEXT}$'), handle_my_stats))
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{SUPPORT_TEXT}$'), handle_support))
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{LANGUAGE_TEXT}$'), handle_language_button))
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{ADMIN_PANEL_TEXT}$'), admin_panel_command))
 
-    bot_app.add_handler(CallbackQueryHandler(handle_button_press))
+    # --- সঠিক ক্রমে হ্যান্ডলারগুলো যোগ করা হয়েছে ---
     bot_app.add_handler(CallbackQueryHandler(admin_panel_callback, pattern='^admin_guideline$'))
+    bot_app.add_handler(CallbackQueryHandler(handle_button_press)) # এটি এখন শেষে থাকবে
     
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, start_command))
 
     logger.info("Telegram Bot starting polling...")
-    bot_app.run_polling(allowed_updates=Update.ALL_TYPES)
+    bot_app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
