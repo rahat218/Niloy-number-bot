@@ -26,8 +26,7 @@ SUPPORT_USERNAME = "@NgRony"
 MAX_STRIKES = 3
 BAN_HOURS = 24
 
-# --- বাটন টেক্সট (সহজে পরিবর্তনের জন্য) ---
-# আপনার অনুরোধ অনুযায়ী Get Number বাটনের ইমোজি পরিবর্তন করা হয়েছে
+# --- বাটন টেক্সট ---
 GET_NUMBER_TEXT = "✨ Get Number 🎗️"
 MY_STATS_TEXT = "📊 My Stats"
 SUPPORT_TEXT = "📞 Support"
@@ -75,7 +74,6 @@ LANG_TEXT = {
     }
 }
 
-
 # -----------------------------------------------------------------------------
 # |                      লগিং ও ওয়েব সার্ভার সেটআপ                       |
 # -----------------------------------------------------------------------------
@@ -98,24 +96,51 @@ def run_flask():
 async def get_db_conn():
     return await psycopg.AsyncConnection.connect(DATABASE_URL)
 
+# --- ডাটাবেস সেটআপ ফাংশন (সমস্যা সমাধান করা হয়েছে) ---
 async def setup_database(app: Application):
-    logger.info("Connecting to database...")
+    logger.info("Connecting to database and verifying schema...")
     try:
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
+                # ধাপ ১: টেবিলগুলো তৈরি আছে কিনা তা নিশ্চিত করা
                 await acur.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         user_id BIGINT PRIMARY KEY,
                         first_name VARCHAR(255),
                         strikes INT DEFAULT 0,
                         is_banned BOOLEAN DEFAULT FALSE,
-                        ban_until TIMESTAMP,
-                        language VARCHAR(5) DEFAULT 'bn'
+                        ban_until TIMESTAMP
                     );
-                    CREATE TABLE IF NOT EXISTS numbers (id SERIAL PRIMARY KEY, phone_number VARCHAR(25) UNIQUE NOT NULL, service VARCHAR(50) NOT NULL, is_available BOOLEAN DEFAULT TRUE, is_reported BOOLEAN DEFAULT FALSE, assigned_to BIGINT, assigned_at TIMESTAMP);
+                    CREATE TABLE IF NOT EXISTS numbers (
+                        id SERIAL PRIMARY KEY,
+                        phone_number VARCHAR(25) UNIQUE NOT NULL,
+                        service VARCHAR(50) NOT NULL,
+                        is_available BOOLEAN DEFAULT TRUE,
+                        is_reported BOOLEAN DEFAULT FALSE,
+                        assigned_to BIGINT,
+                        assigned_at TIMESTAMP
+                    );
                 """)
-        logger.info("SUCCESS: Database setup complete.")
-        await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ **Bot Deployed/Restarted Successfully!**", parse_mode='Markdown')
+                
+                # ধাপ ২: 'language' কলামটি 'users' টেবিলে আছে কিনা তা চেক করা
+                await acur.execute("""
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name='users' AND column_name='language'
+                """)
+                column_exists = await acur.fetchone()
+
+                # ধাপ ৩: যদি কলামটি না থাকে, তবে এটিকে ডিফল্ট মান দিয়ে যোগ করা
+                if not column_exists:
+                    logger.warning("Column 'language' not found in 'users' table. Adding it now...")
+                    await acur.execute("ALTER TABLE users ADD COLUMN language VARCHAR(5) DEFAULT 'bn';")
+                    logger.info("SUCCESS: Column 'language' added to 'users' table.")
+        
+        logger.info("SUCCESS: Database schema is up-to-date.")
+        await app.bot.send_message(
+            chat_id=ADMIN_USER_ID, 
+            text="✅ **Bot Deployed/Restarted Successfully!**\nDatabase schema is up-to-date.", 
+            parse_mode='Markdown'
+        )
     except Exception as e:
         logger.error(f"CRITICAL: Database or boot failure! Error: {e}")
 
