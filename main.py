@@ -20,7 +20,7 @@ from telegram.error import Forbidden
 # |                      ⚠️ আপনার সকল গোপন তথ্য এখানে ⚠️                      |
 # -----------------------------------------------------------------------------
 BOT_TOKEN = "7925556669:AAE5F9zUGOK37niSd0x-YEQX8rn-xGd8Pl8" # প্রয়োজনে নতুন টোকেন ব্যবহার করুন
-DATABASE_URL = "postgresql://niloy_number_bot_user:p2pmOrN2Kx7WjiC611qPGk1cVBqEbfeq@dpg-d20ii8nfte5s738v6elg-a/niloy_number_bot"
+DATABASE_URL = "postgresql://number_bot_running_user:kpQLHQIuZF68uc7fMlgFiaNoV7JzemyL@dpg-d21qr663jp1c73871p20-a/number_bot_running"
 ADMIN_USER_ID = 7052442701
 SUPPORT_USERNAME = "@NgRony"
 
