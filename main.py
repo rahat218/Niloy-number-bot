@@ -29,7 +29,7 @@ SUPPORT_USERNAME = "@NgRony"
 # --- বটের সেটিংস ---
 MAX_STRIKES = 3
 BAN_HOURS = 24
-COOLDOWN_MINUTES = 2
+COOLDOWN_MINUTES = 1 # আপনার অনুরোধ অনুযায়ী ১ মিনিট করা হয়েছে
 INACTIVITY_MINUTES = 5
 
 # --- বাটন টেক্সট ---
@@ -39,7 +39,7 @@ SUPPORT_TEXT = "📞 Support"
 LANGUAGE_TEXT = "🌐 Language"
 ADMIN_PANEL_TEXT = "👑 Admin Panel 👑"
 
-# --- বহুভাষিক টেক্সট (শুধুমাত্র এই অংশটি ঠিক করা হয়েছে) ---
+# --- বহুভাষিক টেক্সট (আপনার অনুরোধ অনুযায়ী নতুন লেখা যোগ করা হয়েছে) ---
 LANG_TEXT = {
     'bn': {
         "welcome": "👋 স্বাগতম, {first_name}!\n\nনিচের কীবোর্ড থেকে একটি অপশন বেছে নিন।",
@@ -57,9 +57,11 @@ LANG_TEXT = {
         "lang_changed": "✅ আপনার ভাষা সফলভাবে 'বাংলা' করা হয়েছে।",
         "searching_number": "🔍 আপনার জন্য একটি {service} নম্বর খোঁজা হচ্ছে...",
         "no_number_available": "❌ দুঃখিত, এই মুহূর্তে {service} সার্ভিসের জন্য কোনো নম্বর খালি নেই! ❌\n\nঅ্যাডমিনকে বিষয়টি জানানো হয়েছে এবং তিনি খুব শীঘ্রই নতুন নম্বর যোগ করবেন।\n\n⏳ অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।",
-        "number_found": "✅ আপনার নম্বরটি নিচে দেওয়া হলো:\n\n`{phone_number}`\n\nএই নম্বরটি ৫ মিনিটের জন্য আপনার। OTP পাওয়ার পর নিচের বাটনে ক্লিক করুন।",
+        "number_found_notice": "✅ আপনার নম্বরটি নিচে দেওয়া হলো:\n\n`{phone_number}`\n\n---\n⚠️ **গুরুত্বপূর্ণ নোটিস** ⚠️\nনম্বরটি নেওয়ার আগে অবশ্যই **\"নিয়মাবলী\"** বাটনে ক্লিক করে আমাদের নিয়মাবলী ভালোভাবে পড়ে নিবেন। অন্যথায় সমস্যায় পড়তে পারেন। ধন্যবাদ ☺️✨",
         "otp_received_button": "✅ OTP পেয়েছি",
-        "otp_failed_button": "❌ OTP আসেনি (নতুন নম্বর)",
+        "otp_failed_button": "❌ OTP পাইনি",
+        "otp_cancel_button": "↪️ বাতিল করুন",
+        "request_cancelled": "✅ আপনার অনুরোধটি বাতিল করা হয়েছে।",
         "report_success": "✅ নম্বরটি সফলভাবে রিপোর্ট করা হয়েছে। আপনার জন্য নতুন নম্বর খোঁজা হচ্ছে...",
         "thank_you_for_otp": "🎉 ধন্যবাদ! আপনার কাজ সফল হয়েছে। আপনি {minutes} মিনিট পর আবার নতুন নম্বর নিতে পারবেন।",
         "cooldown_message": "⏳ অনুগ্রহ করে অপেক্ষা করুন! আপনি শেষবার নম্বর নেওয়ার পর এখনো {minutes} মিনিট পূর্ণ হয়নি।",
@@ -67,6 +69,9 @@ LANG_TEXT = {
         "ban_message": "🚫 আপনি নিষিদ্ধ! 🚫\n\nআপনি {max_strikes} বার নিয়ম লঙ্ঘন করায় আপনাকে স্বয়ংক্রিয়ভাবে {hours} ঘণ্টার জন্য ব্যান করা হয়েছে।",
         "unban_message": "🎉 নিষেধাজ্ঞা তুলে নেওয়া হয়েছে! 🎉\n\nআপনার ২৪ ঘণ্টার নিষেধাজ্ঞা শেষ হয়েছে। আপনার স্ট্রাইক রিসেট করা হয়েছে।",
         "admin_panel_prompt": "👑 অ্যাডমিন প্যানেলে স্বাগতম 👑",
+        "total_otp_received_text": "📊 মোট OTP এসেছে",
+        "total_otp_reports_text": "📈 মোট রিপোর্ট",
+        "total_cancellations_text": "🗑️ মোট বাতিল",
         "add_number_prompt": "➕ নম্বর যোগ করতে, ফরম্যাট অনুসরণ করুন:\n`/add <Service> <Number1> <Number2> ...`\nউদাহরণ:\n`/add Facebook 12345 67890`",
         "number_added_success": "✅ সফলভাবে {count} টি নতুন {service} নম্বর যোগ করা হয়েছে।",
         "new_number_broadcast": "🎉 **সুখবর! নতুন নম্বর এসে গেছে!** 🎉\n\nহ্যালো, ব্যবহারকারী!\n\n📅 তারিখ: *{date}*\n\nঅ্যাডমিন আজ **{service}** সার্ভিসের জন্য নতুন নম্বর যোগ করেছেন। স্টক সীমিত, তাই দেরি না করে আপনার নম্বরটি সংগ্রহ করুন।\n\n👇 **তাড়াতাড়ি আপনার নম্বর সংগ্রহ করতে নিচের বাটনে ক্লিক করুন।** 👇",
@@ -94,7 +99,7 @@ LANG_TEXT = {
         "del_service_prompt": "🗑️ নির্দিষ্ট সার্ভিসের সব নম্বর ডিলিট করতে:\n`/del_service <Service>`",
         "del_service_success": "✅ `{service}` সার্ভিসের মোট {count} টি নম্বর সফলভাবে ডিলিট করা হয়েছে।",
         "del_all_prompt": "🔴 **সতর্কবার্তা!** 🔴\nআপনি কি সত্যিই সকল সার্ভিসের সব নম্বর ডিলিট করতে চান? এই কাজটি আর ফেরানো যাবে না।\n\nনিশ্চিত করতে, রিপ্লাই দিন: `/del_all YES`",
-        "del_all_success": "✅ ডাটাবেস থেকে সকল নম্বর সফলভাবে ডিলিট করা হয়েছে।",
+        "del_all_success": "✅ ডাটাবেস থেকে সকল নম্বর এবং পরিসংখ্যান সফলভাবে ডিলিট করা হয়েছে।",
         "del_all_cancelled": "❌ ডিলিট বাতিল করা হয়েছে।",
         "admin_guide_button": "📜 Admin Guide",
         "admin_guide_header": "👑 **অ্যাডমিন কমান্ড গাইড** 👑\n\n",
@@ -114,14 +119,16 @@ LANG_TEXT = {
         "stats_not_found": "Your statistics could not be found. Please use the /start command.",
         "support_prompt": "📞 For any assistance, please contact our support team by clicking the button below.",
         "support_button": "Contact Support",
-        "unknown_command": "💔 Sorry, I couldn't understand you 😔 The command is incorrect 🍂", # <--- আপনার অনুরোধ অনুযায়ী শুধু এই লাইনটি পরিবর্তন করা হয়েছে
+        "unknown_command": "💔 Sorry, I couldn't understand you 😔 The command is incorrect 🍂",
         "choose_language": "Please select your language:",
         "lang_changed": "✅ Your language has been successfully changed to 'English'.",
         "searching_number": "🔍 Searching for a {service} number for you...",
         "no_number_available": "❌ Sorry, no numbers are available for the {service} service at the moment! ❌\n\nThe admin has been notified and will add new numbers soon.\n\n⏳ Please try again after some time.",
-        "number_found": "✅ Your number is provided below:\n\n`{phone_number}`\n\nThis number is yours for 5 minutes. Click the button below after you receive the OTP.",
+        "number_found_notice": "✅ Your number is provided below:\n\n`{phone_number}`\n\n---\n⚠️ **Important Notice** ⚠️\nBefore taking the number, you must read our rules by clicking the **\"Rules\"** button. Otherwise, you may face issues. Thank you ☺️✨",
         "otp_received_button": "✅ Received OTP",
-        "otp_failed_button": "❌ Didn't get OTP (New Number)",
+        "otp_failed_button": "❌ OTP Not Received",
+        "otp_cancel_button": "↪️ Cancel",
+        "request_cancelled": "✅ Your request has been cancelled.",
         "report_success": "✅ The number has been reported successfully. Searching for a new number for you...",
         "thank_you_for_otp": "🎉 Thank you! Your task was successful. You can get a new number after {minutes} minutes.",
         "cooldown_message": "⏳ Please wait! {minutes} minutes have not passed since you last took a number.",
@@ -129,6 +136,9 @@ LANG_TEXT = {
         "ban_message": "🚫 You are banned! 🚫\n\nYou have been automatically banned for {hours} hours for violating the rules {max_strikes} times.",
         "unban_message": "🎉 Ban lifted! 🎉\n\nYour 24-hour ban has ended. Your strikes have been reset.",
         "admin_panel_prompt": "👑 Welcome to the Admin Panel 👑",
+        "total_otp_received_text": "📊 Total OTPs Received",
+        "total_otp_reports_text": "📈 Total Reports",
+        "total_cancellations_text": "🗑️ Total Cancellations",
         "add_number_prompt": "➕ To add numbers, follow the format:\n`/add <Service> <Number1> <Number2> ...`\nExample:\n`/add Facebook 12345 67890`",
         "number_added_success": "✅ Successfully added {count} new {service} numbers.",
         "new_number_broadcast": "🎉 **Good News! New Numbers Added!** 🎉\n\nHello, user!\n\n📅 Date: *{date}*\n\nThe admin has added new numbers for the **{service}** service today. Stock is limited!\n\n👇 **Click the button below to get your number quickly.** 👇",
@@ -156,7 +166,7 @@ LANG_TEXT = {
         "del_service_prompt": "🗑️ To delete all numbers of a specific service:\n`/del_service <Service>`",
         "del_service_success": "✅ A total of {count} numbers for the `{service}` service have been successfully deleted.",
         "del_all_prompt": "🔴 **Warning!** 🔴\nAre you sure you want to delete all numbers for all services? This action cannot be undone.\n\nTo confirm, reply with: `/del_all YES`",
-        "del_all_success": "✅ All numbers have been successfully deleted from the database.",
+        "del_all_success": "✅ All numbers and statistics have been successfully deleted from the database.",
         "del_all_cancelled": "❌ Deletion has been cancelled.",
         "admin_guide_button": "📜 Admin Guide",
         "admin_guide_header": "👑 **Admin Command Guide** 👑\n\n",
@@ -218,7 +228,20 @@ async def setup_database(app: Application):
                         message_id BIGINT NOT NULL,
                         broadcast_type VARCHAR(50) NOT NULL
                     );
+                    CREATE TABLE IF NOT EXISTS bot_stats (
+                        stat_key VARCHAR(50) PRIMARY KEY,
+                        stat_value BIGINT DEFAULT 0
+                    );
                 """)
+                # পরিসংখ্যান টেবিল ইনিশিয়ালাইজ করা
+                await acur.execute("""
+                    INSERT INTO bot_stats (stat_key) VALUES 
+                    ('total_otp_received'), 
+                    ('total_otp_reports'), 
+                    ('total_cancellations') 
+                    ON CONFLICT (stat_key) DO NOTHING;
+                """)
+
                 required_columns = {
                     "is_available": "BOOLEAN DEFAULT TRUE",
                     "is_reported": "BOOLEAN DEFAULT FALSE",
@@ -373,6 +396,12 @@ async def handle_unknown_message(update: Update, context: ContextTypes.DEFAULT_T
         reply_markup=get_main_reply_keyboard(update.effective_user.id)
     )
 
+async def remove_strike_job(context: ContextTypes.DEFAULT_TYPE, user_id: int, number_id: int):
+    jobs = context.job_queue.get_jobs_by_name(f"strike_{user_id}_{number_id}")
+    for job in jobs:
+        job.schedule_removal()
+    logger.info(f"Removed inactivity job for user {user_id} and number {number_id}")
+
 async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -398,8 +427,19 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
                 async with aconn.cursor() as acur:
                     await acur.execute("UPDATE numbers SET is_available = FALSE, assigned_to = %s, assigned_at = NOW() WHERE id = %s", (user_id, number_id))
                     await aconn.commit()
-            otp_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(LANG_TEXT[lang]['otp_received_button'], callback_data=f"otp_ok_{number_id}")], [InlineKeyboardButton(LANG_TEXT[lang]['otp_failed_button'], callback_data=f"otp_fail_{number_id}")]])
-            await query.edit_message_text(text=LANG_TEXT[lang]['number_found'].format(phone_number=number_data['phone_number']), reply_markup=otp_keyboard, parse_mode='Markdown')
+            
+            # নতুন ৩টি বাটন তৈরি
+            otp_keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton(LANG_TEXT[lang]['otp_received_button'], callback_data=f"otp_ok_{number_id}")], 
+                [InlineKeyboardButton(LANG_TEXT[lang]['otp_failed_button'], callback_data=f"otp_fail_{number_id}")],
+                [InlineKeyboardButton(LANG_TEXT[lang]['otp_cancel_button'], callback_data=f"otp_cancel_{number_id}")]
+            ])
+            # আপনার অনুরোধ অনুযায়ী নতুন মেসেজ ফরম্যাট
+            await query.edit_message_text(
+                text=LANG_TEXT[lang]['number_found_notice'].format(phone_number=number_data['phone_number']),
+                reply_markup=otp_keyboard,
+                parse_mode='Markdown'
+            )
             context.job_queue.run_once(inactivity_strike_job, INACTIVITY_MINUTES * 60, data={'user_id': user_id, 'number_id': number_id}, name=f"strike_{user_id}_{number_id}")
         else:
             await query.edit_message_text(text=LANG_TEXT[lang]['no_number_available'].format(service=service))
@@ -415,26 +455,36 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     elif data.startswith("otp_ok_"):
         number_id = int(data.split("_")[2])
-        jobs = context.job_queue.get_jobs_by_name(f"strike_{user_id}_{number_id}")
-        for job in jobs:
-            job.schedule_removal()
+        await remove_strike_job(context, user_id, number_id)
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
                 await acur.execute("UPDATE users SET last_number_success_at = NOW() WHERE user_id = %s", (user_id,))
                 await acur.execute("UPDATE numbers SET assigned_to = NULL WHERE id = %s", (number_id,))
+                await acur.execute("UPDATE bot_stats SET stat_value = stat_value + 1 WHERE stat_key = 'total_otp_received'")
                 await aconn.commit()
         await query.edit_message_text(LANG_TEXT[lang]['thank_you_for_otp'].format(minutes=COOLDOWN_MINUTES))
+
     elif data.startswith("otp_fail_"):
         number_id = int(data.split("_")[2])
-        jobs = context.job_queue.get_jobs_by_name(f"strike_{user_id}_{number_id}")
-        for job in jobs:
-            job.schedule_removal()
+        await remove_strike_job(context, user_id, number_id)
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
                 await acur.execute("UPDATE numbers SET is_reported = TRUE, is_available = FALSE, assigned_to = NULL WHERE id = %s", (number_id,))
+                await acur.execute("UPDATE bot_stats SET stat_value = stat_value + 1 WHERE stat_key = 'total_otp_reports'")
                 await aconn.commit()
         await query.edit_message_text(LANG_TEXT[lang]['report_success'])
         await query.message.reply_text(text=LANG_TEXT[lang]['choose_service'], reply_markup=await get_number_options_keyboard(lang))
+
+    elif data.startswith("otp_cancel_"):
+        number_id = int(data.split("_")[2])
+        await remove_strike_job(context, user_id, number_id)
+        async with await get_db_conn() as aconn:
+            async with aconn.cursor() as acur:
+                await acur.execute("UPDATE numbers SET is_available = TRUE, assigned_to = NULL, assigned_at = NULL WHERE id = %s", (number_id,))
+                await acur.execute("UPDATE bot_stats SET stat_value = stat_value + 1 WHERE stat_key = 'total_cancellations'")
+                await aconn.commit()
+        await query.edit_message_text(LANG_TEXT[lang]['request_cancelled'])
+
     elif data.startswith("set_lang_"):
         new_lang = data.split("_")[2]
         async with await get_db_conn() as aconn:
@@ -442,8 +492,8 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await acur.execute("UPDATE users SET language = %s WHERE user_id = %s", (new_lang, user_id))
                 await aconn.commit()
         await query.message.delete()
-        # --- ভাষা পরিবর্তনের পর সঠিক ভাষার টেক্সট দিয়ে রিপ্লাই দিবে ---
         await query.message.reply_text(LANG_TEXT[new_lang]['lang_changed'])
+
     elif data == "back_to_main":
         await query.message.delete()
         await query.message.reply_text(LANG_TEXT[lang]['main_menu_prompt'])
@@ -455,18 +505,45 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_USER_ID:
         return
     lang = await get_user_lang(ADMIN_USER_ID)
-    keyboard = InlineKeyboardMarkup([
+    
+    # অ্যাডমিন প্যানেল খোলার আগে ডাটাবেস থেকে পরিসংখ্যান আনা
+    stats = {}
+    async with await get_db_conn() as aconn:
+        async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
+            await acur.execute("SELECT stat_key, stat_value FROM bot_stats")
+            results = await acur.fetchall()
+            for row in results:
+                stats[row['stat_key']] = row['stat_value']
+
+    otp_received = stats.get('total_otp_received', 0)
+    otp_reports = stats.get('total_otp_reports', 0)
+    cancellations = stats.get('total_cancellations', 0)
+
+    # নতুন পরিসংখ্যান বাটন
+    stats_keyboard = [
+        [InlineKeyboardButton(f"{LANG_TEXT[lang]['total_otp_received_text']}: {otp_received}", callback_data="admin_stats_dummy")],
+        [InlineKeyboardButton(f"{LANG_TEXT[lang]['total_otp_reports_text']}: {otp_reports}", callback_data="admin_stats_dummy")],
+        [InlineKeyboardButton(f"{LANG_TEXT[lang]['total_cancellations_text']}: {cancellations}", callback_data="admin_stats_dummy")],
+    ]
+
+    # মূল অ্যাডমিন বাটন
+    main_admin_keyboard = [
         [InlineKeyboardButton("➕ Add Number", callback_data="admin_add"), InlineKeyboardButton("🗑️ Delete Number", callback_data="admin_del")],
         [InlineKeyboardButton("🔄 Reactivate Number", callback_data="admin_reactivate")],
         [InlineKeyboardButton("📄 View Reported", callback_data="admin_view_reported"), InlineKeyboardButton("⌛ View Expired", callback_data="admin_view_expired")],
         [InlineKeyboardButton("📢 Broadcast Msg", callback_data="admin_broadcast"), InlineKeyboardButton("🗑️ Delete Broadcast", callback_data="admin_del_broadcast")],
         [InlineKeyboardButton("🚫 Ban User", callback_data="admin_ban"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban")],
         [InlineKeyboardButton(LANG_TEXT[lang]['admin_guide_button'], callback_data="admin_guide")],
-        [InlineKeyboardButton(LANG_TEXT[lang]['back_button'], callback_data="back_to_main")]])
+        [InlineKeyboardButton(LANG_TEXT[lang]['back_button'], callback_data="back_to_main")]
+    ]
+    
+    # দুটি কীবোর্ড একত্রিত করা
+    full_keyboard = InlineKeyboardMarkup(stats_keyboard + main_admin_keyboard)
+
     if update.callback_query:
-        await update.callback_query.edit_message_text(LANG_TEXT[lang]['admin_panel_prompt'], reply_markup=keyboard)
+        await update.callback_query.edit_message_text(LANG_TEXT[lang]['admin_panel_prompt'], reply_markup=full_keyboard)
     else:
-        await update.message.reply_text(LANG_TEXT[lang]['admin_panel_prompt'], reply_markup=keyboard)
+        await update.message.reply_text(LANG_TEXT[lang]['admin_panel_prompt'], reply_markup=full_keyboard)
 
 async def handle_admin_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -476,6 +553,11 @@ async def handle_admin_callbacks(update: Update, context: ContextTypes.DEFAULT_T
         return
     data = query.data
     lang = await get_user_lang(user_id)
+    
+    # ডামি বাটন যা কিছু করে না
+    if data == "admin_stats_dummy":
+        return
+
     prompts = {
         "admin_add": LANG_TEXT[lang]['add_number_prompt'],
         "admin_del": LANG_TEXT[lang]['delnum_prompt'],
@@ -502,7 +584,7 @@ async def handle_admin_callbacks(update: Update, context: ContextTypes.DEFAULT_T
             message = LANG_TEXT[lang]['view_reported_header'] + "\n\n" + "\n".join([f"`{n['phone_number']}` ({n['service']})" for n in numbers])
         else:
             message = LANG_TEXT[lang]['no_reported_numbers']
-        await query.edit_message_text(message, parse_mode='Markdown')
+        await query.edit_message_text(message, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(LANG_TEXT[lang]['back_to_admin_panel_button'], callback_data="back_to_admin_panel")]]))
     elif data == "admin_view_expired":
         async with await get_db_conn() as aconn:
             async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
@@ -512,7 +594,7 @@ async def handle_admin_callbacks(update: Update, context: ContextTypes.DEFAULT_T
             message = LANG_TEXT[lang]['view_expired_header'] + "\n\n" + "\n".join([f"`{n['phone_number']}` ({n['service']})" for n in numbers])
         else:
             message = LANG_TEXT[lang]['no_expired_numbers']
-        await query.edit_message_text(message, parse_mode='Markdown')
+        await query.edit_message_text(message, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(LANG_TEXT[lang]['back_to_admin_panel_button'], callback_data="back_to_admin_panel")]]))
 
 # --- অ্যাডমিন কমান্ড হ্যান্ডলার ---
 async def add_number_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -760,6 +842,7 @@ async def del_all_numbers_command(update: Update, context: ContextTypes.DEFAULT_
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur:
             await acur.execute("TRUNCATE TABLE numbers RESTART IDENTITY;")
+            await acur.execute("UPDATE bot_stats SET stat_value = 0;") # পরিসংখ্যান রিসেট করা
             await aconn.commit()
     await update.message.reply_text(LANG_TEXT[lang]['del_all_success'])
 
@@ -790,10 +873,10 @@ def main() -> None:
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{LANGUAGE_TEXT}$'), handle_language_button))
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{ADMIN_PANEL_TEXT}$'), admin_panel))
     
-    # এটি এমন সব মেসেজ ধরবে যা উপরের কোনো কমান্ড বা বাটনের সাথে মেলে না
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unknown_message))
     
-    bot_app.add_handler(CallbackQueryHandler(handle_button_press, pattern="^(get_number_|otp_ok_|otp_fail_|set_lang_|back_to_main)"))
+    # নতুন বাটনগুলোর জন্য হ্যান্ডলার আপডেট করা হয়েছে
+    bot_app.add_handler(CallbackQueryHandler(handle_button_press, pattern="^(get_number_|otp_ok_|otp_fail_|otp_cancel_|set_lang_|back_to_main)"))
     bot_app.add_handler(CallbackQueryHandler(handle_admin_callbacks, pattern="^admin_|back_to_admin_panel"))
     logger.info("Telegram Bot starting polling...")
     bot_app.run_polling(allowed_updates=Update.ALL_TYPES)
