@@ -22,7 +22,7 @@ from telegram.error import Forbidden, BadRequest
 # -----------------------------------------------------------------------------
 
 BOT_TOKEN = "7925556669:AAE5F9zUGOK37niSd0x-YEQX8rn-xGd8Pl8"
-DATABASE_URL = "postgresql://number_bot_running_user:kpQLHQIuZF68uc7fMlgFiaNoV7JzemyL@dpg-d21qr6663jp1c73871p20-a/number_bot_running"
+DATABASE_URL = "postgresql://number_bot_running_user:kpQLHQIuZF68uc7fMlgFiaNoV7JzemyL@dpg-d21qr663jp1c73871p20-a/number_bot_running"
 ADMIN_USER_ID = 7052442701
 SUPPORT_USERNAME = "@NgRony"
 
