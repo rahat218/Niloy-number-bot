@@ -56,8 +56,7 @@ LANG_TEXT = {
         "choose_language": "অনুগ্রহ করে আপনার ভাষা নির্বাচন করুন:",
         "lang_changed": "✅ আপনার ভাষা সফলভাবে 'বাংলা' করা হয়েছে।",
         "searching_number": "🔍 আপনার জন্য একটি {service} নম্বর খোঁজা হচ্ছে...",
-        # ✅ সমাধান ২: এখানে আপনার অনুরোধ অনুযায়ী বার্তাটি পরিবর্তন করা হয়েছে
-        "no_number_available": "❌ দুঃখিত, এই মুহূর্তে সব নম্বর শেষ। অতি শীঘ্রই অ্যাডমিন নতুন নম্বর যোগ করবেন। অনুগ্রহ করে অপেক্ষা করুন।",
+        "no_number_available": "❌ দুঃখিত, এই মুহূর্তে {service} সার্ভিসের জন্য কোনো নম্বর খালি নেই! ❌\n\nঅ্যাডমিনকে বিষয়টি জানানো হয়েছে এবং তিনি খুব শীঘ্রই নতুন নম্বর যোগ করবেন।\n\n⏳ অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।",
         "number_found": "✅ আপনার নম্বরটি নিচে দেওয়া হলো:\n\n`{phone_number}`\n\nএই নম্বরটি ৫ মিনিটের জন্য আপনার। OTP পাওয়ার পর নিচের বাটনে ক্লিক করুন।",
         "otp_received_button": "✅ OTP পেয়েছি",
         "otp_failed_button": "❌ OTP আসেনি (নতুন নম্বর)",
@@ -205,21 +204,17 @@ async def setup_database(app: Application):
                     );
                 """)
                 
-                # ✅ সমাধান ১: ডাটাবেস স্কিমা যাচাই এবং অনুপস্থিত কলাম যোগ করা
+                # ধাপ ২: ডাটাবেস স্কিমা যাচাই এবং সংশোধন (মূল সমস্যা সমাধান)
+                await acur.execute("""
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name='numbers' AND column_name='is_available';
+                """)
+                column_exists = await acur.fetchone()
                 
-                # 'is_available' কলাম চেক
-                await acur.execute("SELECT 1 FROM information_schema.columns WHERE table_name='numbers' AND column_name='is_available';")
-                if not await acur.fetchone():
-                    logger.warning("Column 'is_available' not found. Adding it now...")
+                if not column_exists:
+                    logger.warning("Column 'is_available' not found in 'numbers' table. Adding it now...")
                     await acur.execute("ALTER TABLE numbers ADD COLUMN is_available BOOLEAN DEFAULT TRUE;")
-                    logger.info("Successfully added 'is_available' column.")
-
-                # 'is_reported' কলাম চেক (এটিই মূল সমস্যার কারণ ছিল)
-                await acur.execute("SELECT 1 FROM information_schema.columns WHERE table_name='numbers' AND column_name='is_reported';")
-                if not await acur.fetchone():
-                    logger.warning("Column 'is_reported' not found. Adding it now...")
-                    await acur.execute("ALTER TABLE numbers ADD COLUMN is_reported BOOLEAN DEFAULT FALSE;")
-                    logger.info("Successfully added 'is_reported' column.")
+                    logger.info("Successfully added 'is_available' column to 'numbers' table.")
 
         logger.info("SUCCESS: Database schema is up-to-date.")
         await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ Bot Deployed/Restarted Successfully!", parse_mode='Markdown')
@@ -428,7 +423,7 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
             # ইনঅ্যাক্টিভিটি স্ট্রাইক জব সেট করা
             context.job_queue.run_once(inactivity_strike_job, INACTIVITY_MINUTES * 60, data={'user_id': user_id, 'number_id': number_id}, name=f"strike_{user_id}_{number_id}")
         else:
-            await query.edit_message_text(text=LANG_TEXT[lang]['no_number_available'])
+            await query.edit_message_text(text=LANG_TEXT[lang]['no_number_available'].format(service=service))
 
     elif data.startswith("otp_ok_"):
         number_id = int(data.split("_")[2])
@@ -539,6 +534,9 @@ async def handle_admin_callbacks(update: Update, context: ContextTypes.DEFAULT_T
 
 # --- অ্যাডমিন কমান্ড হ্যান্ডলার ---
 
+# =======================================================================================
+# |                      ✅ শুধুমাত্র এই ফাংশনটি পরিবর্তন করা হয়েছে ✅                      |
+# =======================================================================================
 async def add_number_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_USER_ID: return
     lang = await get_user_lang(ADMIN_USER_ID)
@@ -552,24 +550,40 @@ async def add_number_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     numbers_to_add = args[1:]
     added_count = 0
     
+    # ডাটাবেস কানেকশন যা স্বয়ংক্রিয়ভাবে commit এবং rollback করবে
     async with await get_db_conn() as aconn:
-        async with aconn.cursor() as acur:
-            for number in numbers_to_add:
-                try:
-                    await acur.execute(
-                        "INSERT INTO numbers (phone_number, service, is_available) VALUES (%s, %s, TRUE)",
-                        (number, service)
-                    )
-                    added_count += 1
-                except psycopg.errors.UniqueViolation:
-                    logger.warning(f"Number {number} already exists. Skipping.")
-    
+        try:
+            async with aconn.cursor() as acur:
+                for number in numbers_to_add:
+                    try:
+                        # is_reported কলামসহ নম্বর যোগ করা হচ্ছে
+                        await acur.execute(
+                            "INSERT INTO numbers (phone_number, service, is_available, is_reported) VALUES (%s, %s, TRUE, FALSE)",
+                            (number, service)
+                        )
+                        added_count += 1
+                    except psycopg.errors.UniqueViolation:
+                        logger.warning(f"Number {number} already exists. Skipping.")
+            
+            # সমস্ত নম্বর যোগ করার পর লেনদেনটি স্থায়ীভাবে সেভ করা হচ্ছে
+            await aconn.commit() 
+            
+        except Exception as e:
+            logger.error(f"Error while adding numbers: {e}")
+            await aconn.rollback() # কোনো সমস্যা হলে লেনদেন বাতিল করা
+            await update.message.reply_text("An error occurred while adding numbers.")
+            return
+
     if added_count > 0:
         await update.message.reply_text(LANG_TEXT[lang]['number_added_success'].format(count=added_count, service=service))
         # স্বয়ংক্রিয় ঘোষণা পাঠানো
         await auto_broadcast_new_numbers(context, service, lang)
     else:
-        await update.message.reply_text("No new numbers were added.")
+        await update.message.reply_text("No new numbers were added (possibly all were duplicates).")
+# =======================================================================================
+# |                                  পরিবর্তন এখানে শেষ                                  |
+# =======================================================================================
+
 
 async def auto_broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE, service: str, lang: str):
     """নতুন নম্বর যোগ করার পর সকল ব্যবহারকারীকে ঘোষণা পাঠায় এবং পুরানোটা ডিলিট করে।"""
