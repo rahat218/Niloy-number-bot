@@ -177,6 +177,7 @@ async def setup_database(app: Application):
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
                 # ধাপ ১: টেবিলগুলো তৈরি করা (যদি না থাকে)
+                # -----FIX: 'last_number_success_at' কলামটি এখানে যোগ করা হয়েছে-----
                 await acur.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         user_id BIGINT PRIMARY KEY,
@@ -185,7 +186,7 @@ async def setup_database(app: Application):
                         strikes INT DEFAULT 0,
                         is_banned BOOLEAN DEFAULT FALSE,
                         ban_until TIMESTAMP,
-                        last_number_success_at TIMESTAMP
+                        last_number_success_at TIMESTAMP 
                     );
                     CREATE TABLE IF NOT EXISTS numbers (
                         id SERIAL PRIMARY KEY,
@@ -204,17 +205,18 @@ async def setup_database(app: Application):
                     );
                 """)
                 
-                # ধাপ ২: ডাটাবেস স্কিমা যাচাই এবং সংশোধন (মূল সমস্যা সমাধান)
+                # ধাপ ২: ডাটাবেস স্কিমা যাচাই এবং সংশোধন (যদি ডাটাবেস আগে থেকেই তৈরি থাকে)
                 await acur.execute("""
                     SELECT 1 FROM information_schema.columns 
-                    WHERE table_name='numbers' AND column_name='is_available';
+                    WHERE table_name='users' AND column_name='last_number_success_at';
                 """)
                 column_exists = await acur.fetchone()
                 
                 if not column_exists:
-                    logger.warning("Column 'is_available' not found in 'numbers' table. Adding it now...")
-                    await acur.execute("ALTER TABLE numbers ADD COLUMN is_available BOOLEAN DEFAULT TRUE;")
-                    logger.info("Successfully added 'is_available' column to 'numbers' table.")
+                    logger.warning("Column 'last_number_success_at' not found in 'users' table. Adding it now...")
+                    await acur.execute("ALTER TABLE users ADD COLUMN last_number_success_at TIMESTAMP;")
+                    logger.info("Successfully added 'last_number_success_at' column to 'users' table.")
+
 
         logger.info("SUCCESS: Database schema is up-to-date.")
         await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ Bot Deployed/Restarted Successfully!", parse_mode='Markdown')
