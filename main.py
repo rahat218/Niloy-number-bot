@@ -171,8 +171,11 @@ def run_flask():
 async def get_db_conn():
     return await psycopg.AsyncConnection.connect(DATABASE_URL)
 
+# =======================================================================================
+# |          ✅ শুধুমাত্র এই ফাংশনটি পরিবর্তন করা হয়েছে (চূড়ান্ত সমাধান) ✅          |
+# =======================================================================================
 async def setup_database(app: Application):
-    logger.info("Connecting to database and verifying schema...")
+    logger.info("Connecting to database and starting robust schema verification...")
     try:
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
@@ -190,37 +193,49 @@ async def setup_database(app: Application):
                     CREATE TABLE IF NOT EXISTS numbers (
                         id SERIAL PRIMARY KEY,
                         phone_number VARCHAR(25) UNIQUE NOT NULL,
-                        service VARCHAR(50) NOT NULL,
-                        is_available BOOLEAN DEFAULT TRUE,
-                        is_reported BOOLEAN DEFAULT FALSE,
-                        assigned_to BIGINT,
-                        assigned_at TIMESTAMP
+                        service VARCHAR(50) NOT NULL
                     );
                     CREATE TABLE IF NOT EXISTS broadcast_messages (
                         id SERIAL PRIMARY KEY,
                         user_id BIGINT NOT NULL,
                         message_id BIGINT NOT NULL,
-                        broadcast_type VARCHAR(50) NOT NULL -- 'auto_new_number' or 'manual'
+                        broadcast_type VARCHAR(50) NOT NULL
                     );
                 """)
-                
-                # ধাপ ২: ডাটাবেস স্কিমা যাচাই এবং সংশোধন (মূল সমস্যা সমাধান)
-                await acur.execute("""
-                    SELECT 1 FROM information_schema.columns 
-                    WHERE table_name='numbers' AND column_name='is_available';
-                """)
-                column_exists = await acur.fetchone()
-                
-                if not column_exists:
-                    logger.warning("Column 'is_available' not found in 'numbers' table. Adding it now...")
-                    await acur.execute("ALTER TABLE numbers ADD COLUMN is_available BOOLEAN DEFAULT TRUE;")
-                    logger.info("Successfully added 'is_available' column to 'numbers' table.")
 
-        logger.info("SUCCESS: Database schema is up-to-date.")
-        await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ Bot Deployed/Restarted Successfully!", parse_mode='Markdown')
+                # ধাপ ২: 'numbers' টেবিলের সকল প্রয়োজনীয় কলাম যাচাই এবং যোগ করা
+                required_columns = {
+                    "is_available": "BOOLEAN DEFAULT TRUE",
+                    "is_reported": "BOOLEAN DEFAULT FALSE",
+                    "assigned_to": "BIGINT",
+                    "assigned_at": "TIMESTAMP"
+                }
+
+                for column, col_type in required_columns.items():
+                    await acur.execute(
+                        "SELECT 1 FROM information_schema.columns WHERE table_name='numbers' AND column_name=%s",
+                        (column,)
+                    )
+                    if not await acur.fetchone():
+                        logger.warning(f"Column '{column}' not found in 'numbers' table. Adding it now...")
+                        await acur.execute(f"ALTER TABLE numbers ADD COLUMN {column} {col_type};")
+                        logger.info(f"Successfully added '{column}' column to 'numbers' table.")
+                
+                # স্কিমা পরিবর্তনের পর কমিট করা
+                await aconn.commit()
+
+        logger.info("SUCCESS: Database schema verification complete and up-to-date.")
+        await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ Bot successfully deployed with a fully verified database schema.", parse_mode='Markdown')
     except Exception as e:
-        logger.error(f"CRITICAL: Database or boot failure! Error: {e}")
+        logger.error(f"CRITICAL: Database or boot failure during schema verification! Error: {e}")
+        try:
+            await app.bot.send_message(chat_id=ADMIN_USER_ID, text=f"❌ CRITICAL: Bot failed to start. Error: {e}")
+        except Exception as bot_err:
+            logger.error(f"Could not send error message to admin. Bot Error: {bot_err}")
 
+# =======================================================================================
+# |                                  পরিবর্তন এখানে শেষ                                  |
+# =======================================================================================
 
 async def get_user_lang(user_id: int) -> str:
     async with await get_db_conn() as aconn:
@@ -534,9 +549,6 @@ async def handle_admin_callbacks(update: Update, context: ContextTypes.DEFAULT_T
 
 # --- অ্যাডমিন কমান্ড হ্যান্ডলার ---
 
-# =======================================================================================
-# |                      ✅ শুধুমাত্র এই ফাংশনটি পরিবর্তন করা হয়েছে ✅                      |
-# =======================================================================================
 async def add_number_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_USER_ID: return
     lang = await get_user_lang(ADMIN_USER_ID)
@@ -550,13 +562,11 @@ async def add_number_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     numbers_to_add = args[1:]
     added_count = 0
     
-    # ডাটাবেস কানেকশন যা স্বয়ংক্রিয়ভাবে commit এবং rollback করবে
     async with await get_db_conn() as aconn:
         try:
             async with aconn.cursor() as acur:
                 for number in numbers_to_add:
                     try:
-                        # is_reported কলামসহ নম্বর যোগ করা হচ্ছে
                         await acur.execute(
                             "INSERT INTO numbers (phone_number, service, is_available, is_reported) VALUES (%s, %s, TRUE, FALSE)",
                             (number, service)
@@ -565,24 +575,19 @@ async def add_number_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     except psycopg.errors.UniqueViolation:
                         logger.warning(f"Number {number} already exists. Skipping.")
             
-            # সমস্ত নম্বর যোগ করার পর লেনদেনটি স্থায়ীভাবে সেভ করা হচ্ছে
             await aconn.commit() 
             
         except Exception as e:
             logger.error(f"Error while adding numbers: {e}")
-            await aconn.rollback() # কোনো সমস্যা হলে লেনদেন বাতিল করা
+            await aconn.rollback()
             await update.message.reply_text("An error occurred while adding numbers.")
             return
 
     if added_count > 0:
         await update.message.reply_text(LANG_TEXT[lang]['number_added_success'].format(count=added_count, service=service))
-        # স্বয়ংক্রিয় ঘোষণা পাঠানো
         await auto_broadcast_new_numbers(context, service, lang)
     else:
         await update.message.reply_text("No new numbers were added (possibly all were duplicates).")
-# =======================================================================================
-# |                                  পরিবর্তন এখানে শেষ                                  |
-# =======================================================================================
 
 
 async def auto_broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE, service: str, lang: str):
@@ -597,7 +602,7 @@ async def auto_broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE, service
                 try:
                     await bot.delete_message(chat_id=msg['user_id'], message_id=msg['message_id'])
                 except (Forbidden, BadRequest):
-                    pass # ব্যবহারকারী বট ব্লক করলে বা মেসেজ না থাকলে সমস্যা নেই
+                    pass 
             await acur.execute("DELETE FROM broadcast_messages WHERE broadcast_type = 'auto_new_number'")
     await bot.send_message(ADMIN_USER_ID, LANG_TEXT[lang]['broadcast_deleted'])
 
