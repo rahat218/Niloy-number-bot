@@ -176,8 +176,7 @@ async def setup_database(app: Application):
     try:
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
-                # ধাপ ১: টেবিলগুলো তৈরি করা (যদি না থাকে)
-                # -----FIX: 'last_number_success_at' কলামটি এখানে যোগ করা হয়েছে-----
+                # টেবিলগুলো তৈরি করা
                 await acur.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         user_id BIGINT PRIMARY KEY,
@@ -186,7 +185,7 @@ async def setup_database(app: Application):
                         strikes INT DEFAULT 0,
                         is_banned BOOLEAN DEFAULT FALSE,
                         ban_until TIMESTAMP,
-                        last_number_success_at TIMESTAMP 
+                        last_number_success_at TIMESTAMP
                     );
                     CREATE TABLE IF NOT EXISTS numbers (
                         id SERIAL PRIMARY KEY,
@@ -201,22 +200,17 @@ async def setup_database(app: Application):
                         id SERIAL PRIMARY KEY,
                         user_id BIGINT NOT NULL,
                         message_id BIGINT NOT NULL,
-                        broadcast_type VARCHAR(50) NOT NULL -- 'auto_new_number' or 'manual'
+                        broadcast_type VARCHAR(50) NOT NULL
                     );
                 """)
                 
-                # ধাপ ২: ডাটাবেস স্কিমা যাচাই এবং সংশোধন (যদি ডাটাবেস আগে থেকেই তৈরি থাকে)
+                # যদি ডাটাবেস আগে থেকেই তৈরি থাকে, তাহলে কলামটি যোগ করা
                 await acur.execute("""
                     SELECT 1 FROM information_schema.columns 
                     WHERE table_name='users' AND column_name='last_number_success_at';
                 """)
-                column_exists = await acur.fetchone()
-                
-                if not column_exists:
-                    logger.warning("Column 'last_number_success_at' not found in 'users' table. Adding it now...")
+                if not await acur.fetchone():
                     await acur.execute("ALTER TABLE users ADD COLUMN last_number_success_at TIMESTAMP;")
-                    logger.info("Successfully added 'last_number_success_at' column to 'users' table.")
-
 
         logger.info("SUCCESS: Database schema is up-to-date.")
         await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ Bot Deployed/Restarted Successfully!", parse_mode='Markdown')
@@ -231,6 +225,7 @@ async def get_user_lang(user_id: int) -> str:
             result = await acur.fetchone()
             return result[0] if result and result[0] else 'bn'
 
+# -----FIX: 'is_reported' কলামের নাম এখানে সঠিক করা হয়েছে-----
 async def find_available_number(service: str):
     """ডাটাবেস থেকে একটি নির্দিষ্ট সার্ভিসের জন্য উপলব্ধ নম্বর খুঁজে বের করে।"""
     async with await get_db_conn() as aconn:
