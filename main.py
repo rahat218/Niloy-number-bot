@@ -22,7 +22,7 @@ from telegram.error import Forbidden, BadRequest
 # -----------------------------------------------------------------------------
 
 BOT_TOKEN = "7925556669:AAE5F9zUGOK37niSd0x-YEQX8rn-xGd8Pl8"
-DATABASE_URL = "postgresql://number_bot_running_user:kpQLHQIuZF68uc7fMlgFiaNoV7JzemyL@dpg-d21qr663jp1c73871p20-a/number_bot_running"
+DATABASE_URL = "postgresql://number_bot_running_user:kpQLHQIuZF68uc7fMlgFiaNoV7JzemyL@dpg-d21qr6663jp1c73871p20-a/number_bot_running"
 ADMIN_USER_ID = 7052442701
 SUPPORT_USERNAME = "@NgRony"
 
@@ -69,7 +69,8 @@ LANG_TEXT = {
         "admin_panel_prompt": "👑 অ্যাডমিন প্যানেলে স্বাগতম 👑",
         "add_number_prompt": "➕ নম্বর যোগ করতে, ফরম্যাট অনুসরণ করুন:\n`/add <Service> <Number1> <Number2> ...`\nউদাহরণ:\n`/add Facebook 12345 67890`",
         "number_added_success": "✅ সফলভাবে {count} টি নতুন {service} নম্বর যোগ করা হয়েছে।",
-        "new_number_broadcast": "🎉 **সুখবর! নতুন নম্বর যোগ করা হয়েছে!** 🎉\n\n📅 তারিখ: *{date}*\n\nঅ্যাডমিন আজ **{service}** সার্ভিসের জন্য নতুন নম্বর যোগ করেছেন। স্টক সীমিত!\n\nতাড়াতাড়ি আপনার নম্বর সংগ্রহ করতে নিচের বাটনে ক্লিক করুন।\n\n👇👇👇",
+        "new_number_broadcast": "🎉 **সুখবর! নতুন নম্বর এসে গেছে!** 🎉\n\nহ্যালো, ব্যবহারকারী!\n\n📅 তারিখ: *{date}*\n\nঅ্যাডমিন আজ **{service}** সার্ভিসের জন্য নতুন নম্বর যোগ করেছেন। স্টক সীমিত, তাই দেরি না করে আপনার নম্বরটি সংগ্রহ করুন।\n\n👇 **তাড়াতাড়ি আপনার নম্বর সংগ্রহ করতে নিচের বাটনে ক্লিক করুন।** 👇",
+        "get_number_now_button": "✨ এখনি নম্বর নিন ✨",
         "broadcast_deleted": "✅ পূর্বের 'নতুন নম্বর' ঘোষণাটি সফলভাবে ডিলিট করা হয়েছে।",
         "delnum_prompt": "🗑️ নম্বর ডিলিট করতে, ফরম্যাট অনুসরণ করুন:\n`/delnumber <Number>`",
         "delnum_success": "✅ নম্বর `{number}` সফলভাবে ডিলিট করা হয়েছে।",
@@ -85,10 +86,11 @@ LANG_TEXT = {
         "unban_user_prompt": "✅ ব্যবহারকারী আনব্যান করতে:\n`/unban <User_ID>`",
         "unban_success": "✅ ব্যবহারকারী `{user_id}`-কে সফলভাবে আনব্যান করা হয়েছে।",
         "user_not_found": "🤷 ব্যবহারকারী `{user_id}`-কে খুঁজে পাওয়া যায়নি।",
+        "broadcast_prompt": "➡️ প্রচার বার্তা পাঠাতে, এই ফর্ম্যাটে একটি নতুন বার্তা দিন:\n\n`/broadcast আপনার বার্তা এখানে`",
         "broadcast_sent": "✅ বার্তাটি সফলভাবে {count} জন ব্যবহারকারীকে পাঠানো হয়েছে।",
         "broadcast_no_message": "❌ অনুগ্রহ করে /broadcast কমান্ডের সাথে একটি বার্তা দিন।",
         "delbroadcast_success": "✅ সর্বশেষ কাস্টম ঘোষণাটি সফলভাবে ডিলিট করা শুরু হয়েছে।",
-        "admin_announcement": "📣 অ্যাডমিনের ঘোষণা 📣",
+        "admin_announcement": "📣 **অ্যাডমিনের ঘোষণা** 📣",
         "del_service_prompt": "🗑️ নির্দিষ্ট সার্ভিসের সব নম্বর ডিলিট করতে:\n`/del_service <Service>`",
         "del_service_success": "✅ `{service}` সার্ভিসের মোট {count} টি নম্বর সফলভাবে ডিলিট করা হয়েছে।",
         "del_all_prompt": "🔴 **সতর্কবার্তা!** 🔴\nআপনি কি সত্যিই সকল সার্ভিসের সব নম্বর ডিলিট করতে চান? এই কাজটি আর ফেরানো যাবে না।\n\nনিশ্চিত করতে, রিপ্লাই দিন: `/del_all YES`",
@@ -405,7 +407,15 @@ async def handle_admin_callbacks(update: Update, context: ContextTypes.DEFAULT_T
         return
     data = query.data
     lang = await get_user_lang(user_id)
-    prompts = {"admin_add": LANG_TEXT[lang]['add_number_prompt'],"admin_del": LANG_TEXT[lang]['delnum_prompt'],"admin_reactivate": LANG_TEXT[lang]['reactivate_prompt'],"admin_broadcast": "➡️ Send your broadcast message now.","admin_del_broadcast": "Are you sure you want to delete the last custom broadcast?","admin_ban": LANG_TEXT[lang]['ban_user_prompt'],"admin_unban": LANG_TEXT[lang]['unban_user_prompt'],}
+    prompts = {
+        "admin_add": LANG_TEXT[lang]['add_number_prompt'],
+        "admin_del": LANG_TEXT[lang]['delnum_prompt'],
+        "admin_reactivate": LANG_TEXT[lang]['reactivate_prompt'],
+        "admin_broadcast": LANG_TEXT[lang]['broadcast_prompt'],
+        "admin_del_broadcast": "Are you sure you want to delete the last custom broadcast?",
+        "admin_ban": LANG_TEXT[lang]['ban_user_prompt'],
+        "admin_unban": LANG_TEXT[lang]['unban_user_prompt'],
+    }
     if data in prompts:
         await query.edit_message_text(prompts[data])
     elif data == "admin_guide":
@@ -470,41 +480,76 @@ async def add_number_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if 'stock_alert_sent' in context.bot_data and service in context.bot_data['stock_alert_sent']:
             context.bot_data['stock_alert_sent'].remove(service)
             logger.info(f"Stock alert for '{service}' has been reset.")
-        await auto_broadcast_new_numbers(context, service, lang)
+        # --- নতুন নম্বর যোগ করার ঘোষণা পাঠানোর জন্য এই ফাংশনটি কল করা হবে ---
+        await auto_broadcast_new_numbers(context, service)
     else:
         await update.message.reply_text("No new numbers were added (possibly all were duplicates).")
 
-async def auto_broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE, service: str, lang: str):
+async def auto_broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE, service: str):
+    """
+    নতুন নম্বর যোগ করার পর সকল ব্যবহারকারীকে একটি ঘোষণা পাঠায়।
+    """
     bot = context.bot
+    logger.info(f"Starting auto-broadcast for new '{service}' numbers.")
+    
+    # প্রথমে পুরনো ঘোষণাগুলো ডাটাবেস এবং চ্যাট থেকে ডিলিট করে
     async with await get_db_conn() as aconn:
-        async with aconn.cursor() as acur:
+        async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT user_id, message_id FROM broadcast_messages WHERE broadcast_type = 'auto_new_number'")
             old_messages = await acur.fetchall()
+            logger.info(f"Found {len(old_messages)} old broadcast messages to delete.")
             for msg in old_messages:
-                try: await bot.delete_message(chat_id=msg['user_id'], message_id=msg['message_id'])
-                except (Forbidden, BadRequest): pass
+                try:
+                    await bot.delete_message(chat_id=msg['user_id'], message_id=msg['message_id'])
+                except (Forbidden, BadRequest):
+                    pass # ব্যবহারকারী বট ব্লক করলে বা মেসেজ খুঁজে না পেলে স্কিপ করবে
             await acur.execute("DELETE FROM broadcast_messages WHERE broadcast_type = 'auto_new_number'")
             await aconn.commit()
+            logger.info("Old auto-broadcast messages cleared from DB.")
+
+    # সকল নন-ব্যানড ব্যবহারকারীকে নতুন ঘোষণা পাঠায়
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT user_id, language FROM users WHERE is_banned = FALSE")
             all_users = await acur.fetchall()
+
     new_message_ids = []
     current_date = datetime.datetime.now().strftime('%d-%m-%Y')
+    sent_count = 0
+    
     for user in all_users:
-        user_lang = user.get('language', 'bn')
-        text_template = LANG_TEXT.get(user_lang, LANG_TEXT['bn'])['new_number_broadcast']
-        text = text_template.format(date=current_date, service=service)
+        user_lang = user.get('language', 'bn') # ফলব্যাক ল্যাংগুয়েজ 'bn'
+        text_template = LANG_TEXT.get(user_lang, LANG_TEXT['bn'])
+        text = text_template['new_number_broadcast'].format(date=current_date, service=service)
+        
+        # ইনলাইন বাটন তৈরি
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton(text_template['get_number_now_button'], callback_data=f"get_number_{service.lower()}")]
+        ])
+        
         try:
-            sent_message = await bot.send_message(chat_id=user['user_id'], text=text, parse_mode='Markdown')
+            sent_message = await bot.send_message(
+                chat_id=user['user_id'],
+                text=text,
+                parse_mode='Markdown',
+                reply_markup=keyboard
+            )
             new_message_ids.append((user['user_id'], sent_message.message_id, 'auto_new_number'))
+            sent_count += 1
+            await asyncio.sleep(0.1) # স্প্যামিং এড়ানোর জন্য ছোট বিরতি
         except Forbidden:
-            logger.warning(f"User {user['user_id']} blocked the bot.")
-    async with await get_db_conn() as aconn:
-        async with aconn.cursor() as acur:
-            if new_message_ids:
+            logger.warning(f"User {user['user_id']} has blocked the bot. Skipping broadcast.")
+        except Exception as e:
+            logger.error(f"Failed to send auto-broadcast to {user['user_id']}: {e}")
+            
+    # নতুন পাঠানো মেসেজের আইডি ডাটাবেসে সেভ করে
+    if new_message_ids:
+        async with await get_db_conn() as aconn:
+            async with aconn.cursor() as acur:
                 await acur.executemany("INSERT INTO broadcast_messages (user_id, message_id, broadcast_type) VALUES (%s, %s, %s)", new_message_ids)
                 await aconn.commit()
+    logger.info(f"Auto-broadcast sent to {sent_count}/{len(all_users)} users.")
+
 
 async def del_number_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_USER_ID: return
@@ -545,32 +590,49 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(LANG_TEXT[lang]['broadcast_no_message'])
         return
     message_to_send = ' '.join(context.args)
+    
+    # আগের ম্যানুয়াল ব্রডকাস্ট মেসেজ ডিলিট করে
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur:
             await acur.execute("DELETE FROM broadcast_messages WHERE broadcast_type = 'manual'")
             await aconn.commit()
+            
+    # শুধুমাত্র নন-ব্যানড ব্যবহারকারীদের খুঁজে বের করে
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
-            await acur.execute("SELECT user_id, language FROM users")
+            await acur.execute("SELECT user_id, language FROM users WHERE is_banned = FALSE")
             all_users = await acur.fetchall()
+            
     sent_count = 0
     new_message_ids = []
+    
     for user in all_users:
-        header = LANG_TEXT[user['language']]['admin_announcement']
-        formatted_message = f"**{header}**\n\n{message_to_send}"
+        user_lang = user.get('language', 'bn')
+        header = LANG_TEXT.get(user_lang, LANG_TEXT['bn'])['admin_announcement']
+        formatted_message = f"{header}\n\n{message_to_send}"
         try:
-            sent_message = await context.bot.send_message(chat_id=user['user_id'], text=formatted_message, parse_mode='Markdown')
+            sent_message = await context.bot.send_message(
+                chat_id=user['user_id'],
+                text=formatted_message,
+                parse_mode='Markdown'
+            )
             new_message_ids.append((user['user_id'], sent_message.message_id, 'manual'))
             sent_count += 1
-            await asyncio.sleep(0.1)
-        except Forbidden: logger.warning(f"User {user['user_id']} blocked the bot.")
-        except Exception as e: logger.error(f"Failed to send to {user['user_id']}: {e}")
-    async with await get_db_conn() as aconn:
-        async with aconn.cursor() as acur:
-            if new_message_ids:
+            await asyncio.sleep(0.1) # স্প্যামিং এড়ানোর জন্য ছোট বিরতি
+        except Forbidden:
+            logger.warning(f"User {user['user_id']} blocked the bot.")
+        except Exception as e:
+            logger.error(f"Failed to send broadcast to {user['user_id']}: {e}")
+            
+    # নতুন মেসেজ আইডি ডাটাবেসে সেভ করে
+    if new_message_ids:
+        async with await get_db_conn() as aconn:
+            async with aconn.cursor() as acur:
                 await acur.executemany("INSERT INTO broadcast_messages (user_id, message_id, broadcast_type) VALUES (%s, %s, %s)", new_message_ids)
                 await aconn.commit()
+                
     await update.message.reply_text(LANG_TEXT[lang]['broadcast_sent'].format(count=sent_count))
+
 
 async def del_broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_USER_ID: return
