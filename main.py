@@ -52,7 +52,7 @@ LANG_TEXT = {
         "stats_not_found": "আপনার পরিসংখ্যান খুঁজে পাওয়া যায়নি। অনুগ্রহ করে /start কমান্ড দিন।",
         "support_prompt": "📞 যে কোন প্রয়োজনে আমাদের সাপোর্ট টিমের সাথে যোগাযোগ করতে নিচের বাটনে ক্লিক করুন।",
         "support_button": "সাপোর্টে যোগাযোগ করুন",
-        "unknown_command": "💔 দুঃখিত আপনার কথা বুঝতে পাড়িনাই 😔, কমান্ডটি সঠিক নয়।\n\nঅনুগ্রহ করে নিচের বাটনগুলো ব্যবহার করুন। ✨", # <--- পরিবর্তন করা হয়েছে
+        "unknown_command": "💔 দুঃখিত আপনার কথা বুঝতে পাড়িনাই 😔 কমান্ডটি সঠিক নয়🍂", # <--- আপনার অনুরোধ অনুযায়ী পরিবর্তন করা হয়েছে
         "choose_language": "অনুগ্রহ করে আপনার ভাষা নির্বাচন করুন:",
         "lang_changed": "✅ আপনার ভাষা সফলভাবে 'বাংলা' করা হয়েছে।",
         "searching_number": "🔍 আপনার জন্য একটি {service} নম্বর খোঁজা হচ্ছে...",
@@ -114,7 +114,7 @@ LANG_TEXT = {
         "stats_not_found": "Your statistics could not be found. Please use the /start command.",
         "support_prompt": "📞 For any assistance, please contact our support team by clicking the button below.",
         "support_button": "Contact Support",
-        "unknown_command": "🧐 Oops! That's not a valid command.\n\nPlease use the buttons below to navigate. ✨", # <--- পরিবর্তন করা হয়েছে
+        "unknown_command": "💔 দুঃখিত আপনার কথা বুঝতে পাড়িনাই 😔 কমান্ডটি সঠিক নয়🍂", # <--- আপনার অনুরোধ অনুযায়ী পরিবর্তন করা হয়েছে
         "choose_language": "Please select your language:",
         "lang_changed": "✅ Your language has been successfully changed to 'English'.",
         "searching_number": "🔍 Searching for a {service} number for you...",
@@ -366,7 +366,7 @@ async def handle_language_button(update: Update, context: ContextTypes.DEFAULT_T
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🇧🇩 বাংলা", callback_data="set_lang_bn")], [InlineKeyboardButton("🇬🇧 English", callback_data="set_lang_en")]])
     await update.message.reply_text(text=LANG_TEXT[lang]['choose_language'], reply_markup=reply_markup)
 
-async def handle_unknown_message(update: Update, context: ContextTypes.DEFAULT_TYPE): # <--- নতুন যোগ করা হয়েছে
+async def handle_unknown_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = await get_user_lang(update.effective_user.id)
     await update.message.reply_text(
         text=LANG_TEXT[lang]['unknown_command'],
@@ -791,7 +791,7 @@ def main() -> None:
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{ADMIN_PANEL_TEXT}$'), admin_panel))
     
     # এটি এমন সব মেসেজ ধরবে যা উপরের কোনো কমান্ড বা বাটনের সাথে মেলে না
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unknown_message)) # <--- নতুন যোগ করা হয়েছে
+    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unknown_message))
     
     bot_app.add_handler(CallbackQueryHandler(handle_button_press, pattern="^(get_number_|otp_ok_|otp_fail_|set_lang_|back_to_main)"))
     bot_app.add_handler(CallbackQueryHandler(handle_admin_callbacks, pattern="^admin_|back_to_admin_panel"))
