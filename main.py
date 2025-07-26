@@ -56,7 +56,8 @@ LANG_TEXT = {
         "choose_language": "অনুগ্রহ করে আপনার ভাষা নির্বাচন করুন:",
         "lang_changed": "✅ আপনার ভাষা সফলভাবে 'বাংলা' করা হয়েছে।",
         "searching_number": "🔍 আপনার জন্য একটি {service} নম্বর খোঁজা হচ্ছে...",
-        "no_number_available": "❌ দুঃখিত, এই মুহূর্তে {service} সার্ভিসের জন্য কোনো নম্বর খালি নেই! ❌\n\nঅ্যাডমিনকে বিষয়টি জানানো হয়েছে এবং তিনি খুব শীঘ্রই নতুন নম্বর যোগ করবেন।\n\n⏳ অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।",
+        # ✅ সমাধান ২: এখানে আপনার অনুরোধ অনুযায়ী বার্তাটি পরিবর্তন করা হয়েছে
+        "no_number_available": "❌ দুঃখিত, এই মুহূর্তে সব নম্বর শেষ। অতি শীঘ্রই অ্যাডমিন নতুন নম্বর যোগ করবেন। অনুগ্রহ করে অপেক্ষা করুন।",
         "number_found": "✅ আপনার নম্বরটি নিচে দেওয়া হলো:\n\n`{phone_number}`\n\nএই নম্বরটি ৫ মিনিটের জন্য আপনার। OTP পাওয়ার পর নিচের বাটনে ক্লিক করুন।",
         "otp_received_button": "✅ OTP পেয়েছি",
         "otp_failed_button": "❌ OTP আসেনি (নতুন নম্বর)",
@@ -176,7 +177,7 @@ async def setup_database(app: Application):
     try:
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
-                # টেবিলগুলো তৈরি করা
+                # ধাপ ১: টেবিলগুলো তৈরি করা (যদি না থাকে)
                 await acur.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         user_id BIGINT PRIMARY KEY,
@@ -200,17 +201,25 @@ async def setup_database(app: Application):
                         id SERIAL PRIMARY KEY,
                         user_id BIGINT NOT NULL,
                         message_id BIGINT NOT NULL,
-                        broadcast_type VARCHAR(50) NOT NULL
+                        broadcast_type VARCHAR(50) NOT NULL -- 'auto_new_number' or 'manual'
                     );
                 """)
                 
-                # যদি ডাটাবেস আগে থেকেই তৈরি থাকে, তাহলে কলামটি যোগ করা
-                await acur.execute("""
-                    SELECT 1 FROM information_schema.columns 
-                    WHERE table_name='users' AND column_name='last_number_success_at';
-                """)
+                # ✅ সমাধান ১: ডাটাবেস স্কিমা যাচাই এবং অনুপস্থিত কলাম যোগ করা
+                
+                # 'is_available' কলাম চেক
+                await acur.execute("SELECT 1 FROM information_schema.columns WHERE table_name='numbers' AND column_name='is_available';")
                 if not await acur.fetchone():
-                    await acur.execute("ALTER TABLE users ADD COLUMN last_number_success_at TIMESTAMP;")
+                    logger.warning("Column 'is_available' not found. Adding it now...")
+                    await acur.execute("ALTER TABLE numbers ADD COLUMN is_available BOOLEAN DEFAULT TRUE;")
+                    logger.info("Successfully added 'is_available' column.")
+
+                # 'is_reported' কলাম চেক (এটিই মূল সমস্যার কারণ ছিল)
+                await acur.execute("SELECT 1 FROM information_schema.columns WHERE table_name='numbers' AND column_name='is_reported';")
+                if not await acur.fetchone():
+                    logger.warning("Column 'is_reported' not found. Adding it now...")
+                    await acur.execute("ALTER TABLE numbers ADD COLUMN is_reported BOOLEAN DEFAULT FALSE;")
+                    logger.info("Successfully added 'is_reported' column.")
 
         logger.info("SUCCESS: Database schema is up-to-date.")
         await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ Bot Deployed/Restarted Successfully!", parse_mode='Markdown')
@@ -225,7 +234,6 @@ async def get_user_lang(user_id: int) -> str:
             result = await acur.fetchone()
             return result[0] if result and result[0] else 'bn'
 
-# -----FIX: 'is_reported' কলামের নাম এখানে সঠিক করা হয়েছে-----
 async def find_available_number(service: str):
     """ডাটাবেস থেকে একটি নির্দিষ্ট সার্ভিসের জন্য উপলব্ধ নম্বর খুঁজে বের করে।"""
     async with await get_db_conn() as aconn:
@@ -420,7 +428,7 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
             # ইনঅ্যাক্টিভিটি স্ট্রাইক জব সেট করা
             context.job_queue.run_once(inactivity_strike_job, INACTIVITY_MINUTES * 60, data={'user_id': user_id, 'number_id': number_id}, name=f"strike_{user_id}_{number_id}")
         else:
-            await query.edit_message_text(text=LANG_TEXT[lang]['no_number_available'].format(service=service))
+            await query.edit_message_text(text=LANG_TEXT[lang]['no_number_available'])
 
     elif data.startswith("otp_ok_"):
         number_id = int(data.split("_")[2])
