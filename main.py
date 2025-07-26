@@ -39,7 +39,7 @@ SUPPORT_TEXT = "📞 Support"
 LANGUAGE_TEXT = "🌐 Language"
 ADMIN_PANEL_TEXT = "👑 Admin Panel 👑"
 
-# --- বহুভাষিক টেক্সট ---
+# --- বহুভাষিক টেক্সট (শুধুমাত্র এই অংশটি ঠিক করা হয়েছে) ---
 LANG_TEXT = {
     'bn': {
         "welcome": "👋 স্বাগতম, {first_name}!\n\nনিচের কীবোর্ড থেকে একটি অপশন বেছে নিন।",
@@ -103,7 +103,68 @@ LANG_TEXT = {
         "back_button": "⬅️ পিছনে",
         "main_menu_prompt": "প্রধান মেনু থেকে একটি অপশন বেছে নিন।",
     },
-    'en': {} # English translations omitted for brevity
+    'en': {
+        "welcome": "👋 Welcome, {first_name}!\n\nPlease choose an option from the keyboard below.",
+        "keyboard_hidden": "Keyboard hidden. Press /start to see it again.",
+        "choose_service": "🔢 Which service do you need a number for? Please choose:",
+        "stats_header": "📊 Your Statistics",
+        "strikes": "Strikes",
+        "status_banned": "Account Status: Banned for {hours} hours. Ends at: {unban_time}",
+        "status_normal": "Status: Normal User",
+        "stats_not_found": "Your statistics could not be found. Please use the /start command.",
+        "support_prompt": "📞 For any assistance, please contact our support team by clicking the button below.",
+        "support_button": "Contact Support",
+        "unknown_command": "🤔 Sorry, I didn't understand that command. Please use the keyboard buttons.",
+        "choose_language": "Please select your language:",
+        "lang_changed": "✅ Your language has been successfully changed to 'English'.",
+        "searching_number": "🔍 Searching for a {service} number for you...",
+        "no_number_available": "❌ Sorry, no numbers are available for the {service} service at the moment! ❌\n\nThe admin has been notified and will add new numbers soon.\n\n⏳ Please try again after some time.",
+        "number_found": "✅ Your number is provided below:\n\n`{phone_number}`\n\nThis number is yours for 5 minutes. Click the button below after you receive the OTP.",
+        "otp_received_button": "✅ Received OTP",
+        "otp_failed_button": "❌ Didn't get OTP (New Number)",
+        "report_success": "✅ The number has been reported successfully. Searching for a new number for you...",
+        "thank_you_for_otp": "🎉 Thank you! Your task was successful. You can get a new number after {minutes} minutes.",
+        "cooldown_message": "⏳ Please wait! {minutes} minutes have not passed since you last took a number.",
+        "strike_warning": "⚠️ Warning! ⚠️\n\nYou did not respond within {minutes} minutes after taking a number. Your current strikes: {strikes}/{max_strikes}.",
+        "ban_message": "🚫 You are banned! 🚫\n\nYou have been automatically banned for {hours} hours for violating the rules {max_strikes} times.",
+        "unban_message": "🎉 Ban lifted! 🎉\n\nYour 24-hour ban has ended. Your strikes have been reset.",
+        "admin_panel_prompt": "👑 Welcome to the Admin Panel 👑",
+        "add_number_prompt": "➕ To add numbers, follow the format:\n`/add <Service> <Number1> <Number2> ...`\nExample:\n`/add Facebook 12345 67890`",
+        "number_added_success": "✅ Successfully added {count} new {service} numbers.",
+        "new_number_broadcast": "🎉 **Good News! New Numbers Added!** 🎉\n\nHello, user!\n\n📅 Date: *{date}*\n\nThe admin has added new numbers for the **{service}** service today. Stock is limited!\n\n👇 **Click the button below to get your number quickly.** 👇",
+        "get_number_now_button": "✨ Get Number Now ✨",
+        "broadcast_deleted": "✅ The previous 'new number' announcement has been successfully deleted.",
+        "delnum_prompt": "🗑️ To delete a number, follow the format:\n`/delnumber <Number>`",
+        "delnum_success": "✅ Number `{number}` has been successfully deleted.",
+        "delnum_not_found": "❌ Number `{number}` could not be found.",
+        "reactivate_prompt": "🔄 To reactivate a number:\n`/reactivate <Number>`",
+        "reactivate_success": "✅ Number `{number}` has been successfully reactivated.",
+        "view_reported_header": "📄 List of Reported Numbers:",
+        "view_expired_header": "⌛ List of Expired Numbers:",
+        "no_reported_numbers": "👍 No reported numbers.",
+        "no_expired_numbers": "👍 No expired numbers.",
+        "ban_user_prompt": "🚫 To ban a user:\n`/ban <User_ID>`",
+        "ban_success": "✅ User `{user_id}` has been successfully banned.",
+        "unban_user_prompt": "✅ To unban a user:\n`/unban <User_ID>`",
+        "unban_success": "✅ User `{user_id}` has been successfully unbanned.",
+        "user_not_found": "🤷 User `{user_id}` could not be found.",
+        "broadcast_prompt": "➡️ To send a broadcast, provide a message in this format:\n\n`/broadcast Your message here`",
+        "broadcast_sent": "✅ The message has been successfully sent to {count} users.",
+        "broadcast_no_message": "❌ Please provide a message with the /broadcast command.",
+        "delbroadcast_success": "✅ Deletion of the last custom announcement has started successfully.",
+        "admin_announcement": "📣 **Admin Announcement** 📣",
+        "del_service_prompt": "🗑️ To delete all numbers of a specific service:\n`/del_service <Service>`",
+        "del_service_success": "✅ A total of {count} numbers for the `{service}` service have been successfully deleted.",
+        "del_all_prompt": "🔴 **Warning!** 🔴\nAre you sure you want to delete all numbers for all services? This action cannot be undone.\n\nTo confirm, reply with: `/del_all YES`",
+        "del_all_success": "✅ All numbers have been successfully deleted from the database.",
+        "del_all_cancelled": "❌ Deletion has been cancelled.",
+        "admin_guide_button": "📜 Admin Guide",
+        "admin_guide_header": "👑 **Admin Command Guide** 👑\n\n",
+        "admin_guide_text": "**Number Management:**\n🔹 `/add <Service> <Num1> <Num2>...`\n   - Adds one or more numbers to a specific service.\n🔹 `/delnumber <Number>`\n   - Deletes a specific number.\n🔹 `/del_service <Service>`\n   - Deletes *all* numbers of a service.\n🔹 `/del_all`\n   - Deletes *all* numbers in the database (use with caution).\n🔹 `/reactivate <Number>`\n   - Reactivates a reported or used number.\n\n**User Management:**\n🔸 `/ban <User_ID>`\n   - Bans a user.\n🔸 `/unban <User_ID>`\n   - Unbans a banned user.\n\n**Communication:**\n▪️ `/broadcast <Message>`\n   - Sends a message to all users.\n▪️ `/delbroadcast`\n   - Deletes the last sent broadcast.",
+        "back_to_admin_panel_button": "⬅️ Admin Panel",
+        "back_button": "⬅️ Back",
+        "main_menu_prompt": "Please choose an option from the main menu.",
+    }
 }
 
 
@@ -374,6 +435,7 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await acur.execute("UPDATE users SET language = %s WHERE user_id = %s", (new_lang, user_id))
                 await aconn.commit()
         await query.message.delete()
+        # --- ভাষা পরিবর্তনের পর সঠিক ভাষার টেক্সট দিয়ে রিপ্লাই দিবে ---
         await query.message.reply_text(LANG_TEXT[new_lang]['lang_changed'])
     elif data == "back_to_main":
         await query.message.delete()
@@ -480,34 +542,26 @@ async def add_number_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if 'stock_alert_sent' in context.bot_data and service in context.bot_data['stock_alert_sent']:
             context.bot_data['stock_alert_sent'].remove(service)
             logger.info(f"Stock alert for '{service}' has been reset.")
-        # --- নতুন নম্বর যোগ করার ঘোষণা পাঠানোর জন্য এই ফাংশনটি কল করা হবে ---
         await auto_broadcast_new_numbers(context, service)
     else:
         await update.message.reply_text("No new numbers were added (possibly all were duplicates).")
 
 async def auto_broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE, service: str):
-    """
-    নতুন নম্বর যোগ করার পর সকল ব্যবহারকারীকে একটি ঘোষণা পাঠায়।
-    """
     bot = context.bot
     logger.info(f"Starting auto-broadcast for new '{service}' numbers.")
     
-    # প্রথমে পুরনো ঘোষণাগুলো ডাটাবেস এবং চ্যাট থেকে ডিলিট করে
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT user_id, message_id FROM broadcast_messages WHERE broadcast_type = 'auto_new_number'")
             old_messages = await acur.fetchall()
-            logger.info(f"Found {len(old_messages)} old broadcast messages to delete.")
             for msg in old_messages:
                 try:
                     await bot.delete_message(chat_id=msg['user_id'], message_id=msg['message_id'])
                 except (Forbidden, BadRequest):
-                    pass # ব্যবহারকারী বট ব্লক করলে বা মেসেজ খুঁজে না পেলে স্কিপ করবে
+                    pass
             await acur.execute("DELETE FROM broadcast_messages WHERE broadcast_type = 'auto_new_number'")
             await aconn.commit()
-            logger.info("Old auto-broadcast messages cleared from DB.")
 
-    # সকল নন-ব্যানড ব্যবহারকারীকে নতুন ঘোষণা পাঠায়
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT user_id, language FROM users WHERE is_banned = FALSE")
@@ -518,11 +572,10 @@ async def auto_broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE, service
     sent_count = 0
     
     for user in all_users:
-        user_lang = user.get('language', 'bn') # ফলব্যাক ল্যাংগুয়েজ 'bn'
+        user_lang = user.get('language', 'bn')
         text_template = LANG_TEXT.get(user_lang, LANG_TEXT['bn'])
         text = text_template['new_number_broadcast'].format(date=current_date, service=service)
         
-        # ইনলাইন বাটন তৈরি
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(text_template['get_number_now_button'], callback_data=f"get_number_{service.lower()}")]
         ])
@@ -536,13 +589,12 @@ async def auto_broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE, service
             )
             new_message_ids.append((user['user_id'], sent_message.message_id, 'auto_new_number'))
             sent_count += 1
-            await asyncio.sleep(0.1) # স্প্যামিং এড়ানোর জন্য ছোট বিরতি
+            await asyncio.sleep(0.1)
         except Forbidden:
             logger.warning(f"User {user['user_id']} has blocked the bot. Skipping broadcast.")
         except Exception as e:
             logger.error(f"Failed to send auto-broadcast to {user['user_id']}: {e}")
             
-    # নতুন পাঠানো মেসেজের আইডি ডাটাবেসে সেভ করে
     if new_message_ids:
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
@@ -591,13 +643,11 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     message_to_send = ' '.join(context.args)
     
-    # আগের ম্যানুয়াল ব্রডকাস্ট মেসেজ ডিলিট করে
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur:
             await acur.execute("DELETE FROM broadcast_messages WHERE broadcast_type = 'manual'")
             await aconn.commit()
             
-    # শুধুমাত্র নন-ব্যানড ব্যবহারকারীদের খুঁজে বের করে
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT user_id, language FROM users WHERE is_banned = FALSE")
@@ -618,13 +668,12 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             new_message_ids.append((user['user_id'], sent_message.message_id, 'manual'))
             sent_count += 1
-            await asyncio.sleep(0.1) # স্প্যামিং এড়ানোর জন্য ছোট বিরতি
+            await asyncio.sleep(0.1)
         except Forbidden:
             logger.warning(f"User {user['user_id']} blocked the bot.")
         except Exception as e:
             logger.error(f"Failed to send broadcast to {user['user_id']}: {e}")
             
-    # নতুন মেসেজ আইডি ডাটাবেসে সেভ করে
     if new_message_ids:
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
