@@ -29,8 +29,8 @@ SUPPORT_USERNAME = "@NgRony"
 # --- বটের সেটিংস ---
 MAX_STRIKES = 3
 BAN_HOURS = 24
-COOLDOWN_MINUTES = 2
-INACTIVITY_MINUTES = 5
+COOLDOWN_MINUTES = 2  # সফলভাবে নম্বর ব্যবহারের পর কুলডাউন (মিনিট)
+INACTIVITY_MINUTES = 5  # নম্বর নিয়ে OTP ইনপুট না দিলে স্ট্রাইক (মিনিট)
 
 # --- বাটন টেক্সট ---
 GET_NUMBER_TEXT = "✨ Get Number 🎗️"
@@ -176,6 +176,7 @@ async def setup_database(app: Application):
     try:
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
+                # ধাপ ১: টেবিলগুলো তৈরি করা (যদি না থাকে)
                 await acur.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         user_id BIGINT PRIMARY KEY,
@@ -190,6 +191,7 @@ async def setup_database(app: Application):
                         id SERIAL PRIMARY KEY,
                         phone_number VARCHAR(25) UNIQUE NOT NULL,
                         service VARCHAR(50) NOT NULL,
+                        is_available BOOLEAN DEFAULT TRUE,
                         is_reported BOOLEAN DEFAULT FALSE,
                         assigned_to BIGINT,
                         assigned_at TIMESTAMP
@@ -198,22 +200,24 @@ async def setup_database(app: Application):
                         id SERIAL PRIMARY KEY,
                         user_id BIGINT NOT NULL,
                         message_id BIGINT NOT NULL,
-                        broadcast_type VARCHAR(50) NOT NULL
+                        broadcast_type VARCHAR(50) NOT NULL -- 'auto_new_number' or 'manual'
                     );
                 """)
                 
-                # --- সমস্যার সমাধান: is_available কলামটি চেক এবং যোগ করা ---
-                await acur.execute("SELECT 1 FROM information_schema.columns WHERE table_name='numbers' AND column_name='is_available'")
+                # ধাপ ২: ডাটাবেস স্কিমা যাচাই এবং সংশোধন (মূল সমস্যা সমাধান)
+                await acur.execute("""
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name='numbers' AND column_name='is_available';
+                """)
                 column_exists = await acur.fetchone()
                 
                 if not column_exists:
                     logger.warning("Column 'is_available' not found in 'numbers' table. Adding it now...")
                     await acur.execute("ALTER TABLE numbers ADD COLUMN is_available BOOLEAN DEFAULT TRUE;")
-                    logger.info("SUCCESS: Column 'is_available' added to 'numbers' table.")
-                # --------------------- সমাধান শেষ ---------------------
+                    logger.info("Successfully added 'is_available' column to 'numbers' table.")
 
         logger.info("SUCCESS: Database schema is up-to-date.")
-        await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ Bot Deployed/Restarted. Schema Fixed.", parse_mode='Markdown')
+        await app.bot.send_message(chat_id=ADMIN_USER_ID, text="✅ Bot Deployed/Restarted Successfully!", parse_mode='Markdown')
     except Exception as e:
         logger.error(f"CRITICAL: Database or boot failure! Error: {e}")
 
@@ -226,6 +230,7 @@ async def get_user_lang(user_id: int) -> str:
             return result[0] if result and result[0] else 'bn'
 
 async def find_available_number(service: str):
+    """ডাটাবেস থেকে একটি নির্দিষ্ট সার্ভিসের জন্য উপলব্ধ নম্বর খুঁজে বের করে।"""
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute(
@@ -239,6 +244,7 @@ async def find_available_number(service: str):
 # -----------------------------------------------------------------------------
 
 async def inactivity_strike_job(context: ContextTypes.DEFAULT_TYPE):
+    """ব্যবহারকারী নিষ্ক্রিয় থাকলে স্ট্রাইক দেয়।"""
     job = context.job
     user_id = job.data['user_id']
     number_id = job.data['number_id']
@@ -246,26 +252,32 @@ async def inactivity_strike_job(context: ContextTypes.DEFAULT_TYPE):
 
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
+            # চেক করুন নম্বরটি এখনো সেই ব্যবহারকারীর কাছে আছে কিনা
             await acur.execute("SELECT assigned_to FROM numbers WHERE id = %s", (number_id,))
             result = await acur.fetchone()
             if not result or result['assigned_to'] != user_id:
-                return
+                return # নম্বরটি ইতিমধ্যে রিলিজ বা রিপোর্ট করা হয়েছে
 
+            # স্ট্রাইক বাড়ান
             await acur.execute("UPDATE users SET strikes = strikes + 1 WHERE user_id = %s RETURNING strikes", (user_id,))
             user_data = await acur.fetchone()
             new_strikes = user_data['strikes']
 
+            # নম্বরটিকে আবার উপলব্ধ করুন (এক্সপায়ারড)
             await acur.execute("UPDATE numbers SET is_available = TRUE, assigned_to = NULL, assigned_at = NULL WHERE id = %s", (number_id,))
 
             if new_strikes >= MAX_STRIKES:
                 ban_until = datetime.datetime.now() + datetime.timedelta(hours=BAN_HOURS)
                 await acur.execute("UPDATE users SET is_banned = TRUE, ban_until = %s WHERE user_id = %s", (ban_until, user_id))
                 await context.bot.send_message(user_id, LANG_TEXT[lang]['ban_message'].format(max_strikes=MAX_STRIKES, hours=BAN_HOURS))
+                
+                # আনব্যান করার জন্য জব সেট করুন
                 context.job_queue.run_once(auto_unban_job, BAN_HOURS * 3600, data={'user_id': user_id}, name=f"unban_{user_id}")
             else:
                 await context.bot.send_message(user_id, LANG_TEXT[lang]['strike_warning'].format(minutes=INACTIVITY_MINUTES, strikes=new_strikes, max_strikes=MAX_STRIKES))
 
 async def auto_unban_job(context: ContextTypes.DEFAULT_TYPE):
+    """ব্যবহারকারীকে স্বয়ংক্রিয়ভাবে আনব্যান করে।"""
     user_id = context.job.data['user_id']
     lang = await get_user_lang(user_id)
     async with await get_db_conn() as aconn:
@@ -277,6 +289,7 @@ async def auto_unban_job(context: ContextTypes.DEFAULT_TYPE):
         logger.warning(f"User {user_id} blocked the bot, could not send unban message.")
 
 async def daily_cleanup_job(context: ContextTypes.DEFAULT_TYPE):
+    """প্রতিদিন ডাটাবেস থেকে غير فعال ব্যবহারকারীদের তথ্য মুছে ফেলে।"""
     logger.info("Running daily database cleanup...")
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur:
@@ -291,7 +304,7 @@ async def daily_cleanup_job(context: ContextTypes.DEFAULT_TYPE):
 def get_main_reply_keyboard(user_id: int):
     keyboard = [[GET_NUMBER_TEXT], [MY_STATS_TEXT, SUPPORT_TEXT], [LANGUAGE_TEXT]]
     if user_id == ADMIN_USER_ID:
-        keyboard.insert(0, [ADMIN_PANEL_TEXT])
+        keyboard.insert(0, [ADMIN_PANEL_TEXT]) # অ্যাডমিনের জন্য অতিরিক্ত বাটন
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 async def get_number_options_keyboard(lang: str):
@@ -302,6 +315,7 @@ async def get_number_options_keyboard(lang: str):
         [InlineKeyboardButton(LANG_TEXT[lang]['back_button'], callback_data="back_to_main")]
     ])
 
+# --- প্রধান কমান্ড এবং বাটন হ্যান্ডলার ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     lang = await get_user_lang(user.id)
@@ -319,6 +333,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_get_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     lang = await get_user_lang(user_id)
+
+    # ব্যান স্ট্যাটাস চেক
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT is_banned, ban_until FROM users WHERE user_id = %s", (user_id,))
@@ -327,6 +343,7 @@ async def handle_get_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 unban_time = user_status['ban_until'].strftime('%Y-%m-%d %H:%M')
                 await update.message.reply_text(LANG_TEXT[lang]['status_banned'].format(hours=BAN_HOURS, unban_time=unban_time))
                 return
+
     await update.message.reply_text(text=LANG_TEXT[lang]['choose_service'], reply_markup=await get_number_options_keyboard(lang))
 
 async def handle_my_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -360,6 +377,8 @@ async def handle_language_button(update: Update, context: ContextTypes.DEFAULT_T
     ])
     await update.message.reply_text(text=LANG_TEXT[lang]['choose_language'], reply_markup=reply_markup)
 
+# --- ইনলাইন বাটন ক্লিক হ্যান্ডলার (নতুন ফিচারসহ) ---
+
 async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -367,9 +386,12 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
     data = query.data
     lang = await get_user_lang(user_id)
     
+    # ইনলাইন কিবোর্ড বাটন হ্যান্ডলিং
     if data.startswith("get_number_"):
         service = data.split("_")[2].capitalize()
         await query.edit_message_text(text=LANG_TEXT[lang]['searching_number'].format(service=service))
+
+        # কুলডাউন চেক
         async with await get_db_conn() as aconn:
             async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
                 await acur.execute("SELECT last_number_success_at FROM users WHERE user_id = %s", (user_id,))
@@ -398,30 +420,39 @@ async def handle_button_press(update: Update, context: ContextTypes.DEFAULT_TYPE
                 reply_markup=otp_keyboard,
                 parse_mode='Markdown'
             )
+            # ইনঅ্যাক্টিভিটি স্ট্রাইক জব সেট করা
             context.job_queue.run_once(inactivity_strike_job, INACTIVITY_MINUTES * 60, data={'user_id': user_id, 'number_id': number_id}, name=f"strike_{user_id}_{number_id}")
         else:
             await query.edit_message_text(text=LANG_TEXT[lang]['no_number_available'].format(service=service))
 
     elif data.startswith("otp_ok_"):
         number_id = int(data.split("_")[2])
+        # স্ট্রাইক জব রিমুভ করা
         jobs = context.job_queue.get_jobs_by_name(f"strike_{user_id}_{number_id}")
         for job in jobs:
             job.schedule_removal()
+
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
+                # কুলডাউন সেট করা
                 await acur.execute("UPDATE users SET last_number_success_at = NOW() WHERE user_id = %s", (user_id,))
-                await acur.execute("UPDATE numbers SET assigned_to = NULL WHERE id = %s", (number_id,))
+                # নম্বরকে ব্যবহৃত হিসেবে রাখা (কিন্তু available নয়)
+                await acur.execute("UPDATE numbers SET assigned_to = NULL WHERE id = %s", (number_id,)) # কিন্তু is_available=FALSE থাকবে
         await query.edit_message_text(LANG_TEXT[lang]['thank_you_for_otp'].format(minutes=COOLDOWN_MINUTES))
 
     elif data.startswith("otp_fail_"):
         number_id = int(data.split("_")[2])
+        # স্ট্রাইক জব রিমুভ করা
         jobs = context.job_queue.get_jobs_by_name(f"strike_{user_id}_{number_id}")
         for job in jobs:
             job.schedule_removal()
+
         async with await get_db_conn() as aconn:
             async with aconn.cursor() as acur:
                 await acur.execute("UPDATE numbers SET is_reported = TRUE, is_available = FALSE, assigned_to = NULL WHERE id = %s", (number_id,))
+
         await query.edit_message_text(LANG_TEXT[lang]['report_success'])
+        # ব্যবহারকারীকে আবার সার্ভিস সিলেকশন মেনু দেখানো
         await query.message.reply_text(text=LANG_TEXT[lang]['choose_service'], reply_markup=await get_number_options_keyboard(lang))
 
     elif data.startswith("set_lang_"):
@@ -490,6 +521,7 @@ async def handle_admin_callbacks(update: Update, context: ContextTypes.DEFAULT_T
     elif data == "admin_view_expired":
          async with await get_db_conn() as aconn:
             async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
+                # যে নম্বরগুলো ৫ মিনিটের বেশি সময় ধরে assigned কিন্তু কোনো OTP ফিডব্যাক আসেনি
                 await acur.execute("SELECT phone_number, service FROM numbers WHERE assigned_to IS NOT NULL AND assigned_at < NOW() - INTERVAL '5 minutes'")
                 numbers = await acur.fetchall()
          if numbers:
@@ -499,45 +531,45 @@ async def handle_admin_callbacks(update: Update, context: ContextTypes.DEFAULT_T
              message = LANG_TEXT[lang]['no_expired_numbers']
          await query.edit_message_text(message, parse_mode='Markdown')
 
+
 # --- অ্যাডমিন কমান্ড হ্যান্ডলার ---
+
 async def add_number_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_USER_ID: return
     lang = await get_user_lang(ADMIN_USER_ID)
     
-    try:
-        args = context.args
-        if len(args) < 2:
-            await update.message.reply_text(LANG_TEXT[lang]['add_number_prompt'])
-            return
-            
-        service = args[0].capitalize()
-        numbers_to_add = args[1:]
-        added_count = 0
+    args = context.args
+    if len(args) < 2:
+        await update.message.reply_text(LANG_TEXT[lang]['add_number_prompt'])
+        return
         
-        async with await get_db_conn() as aconn:
-            async with aconn.cursor() as acur:
-                for number in numbers_to_add:
-                    try:
-                        await acur.execute(
-                            "INSERT INTO numbers (phone_number, service, is_available) VALUES (%s, %s, TRUE)",
-                            (number, service)
-                        )
-                        added_count += 1
-                    except psycopg.errors.UniqueViolation:
-                        logger.warning(f"Number {number} already exists. Skipping.")
-        
-        if added_count > 0:
-            await update.message.reply_text(LANG_TEXT[lang]['number_added_success'].format(count=added_count, service=service))
-            await auto_broadcast_new_numbers(context, service, lang)
-        else:
-            await update.message.reply_text("No new numbers were added (possibly duplicates).")
-    except Exception as e:
-        logger.error(f"Error in /add command: {e}")
-        await update.message.reply_text(f"❌ An error occurred in /add command.\n\nDetails: `{e}`")
-
+    service = args[0].capitalize()
+    numbers_to_add = args[1:]
+    added_count = 0
+    
+    async with await get_db_conn() as aconn:
+        async with aconn.cursor() as acur:
+            for number in numbers_to_add:
+                try:
+                    await acur.execute(
+                        "INSERT INTO numbers (phone_number, service, is_available) VALUES (%s, %s, TRUE)",
+                        (number, service)
+                    )
+                    added_count += 1
+                except psycopg.errors.UniqueViolation:
+                    logger.warning(f"Number {number} already exists. Skipping.")
+    
+    if added_count > 0:
+        await update.message.reply_text(LANG_TEXT[lang]['number_added_success'].format(count=added_count, service=service))
+        # স্বয়ংক্রিয় ঘোষণা পাঠানো
+        await auto_broadcast_new_numbers(context, service, lang)
+    else:
+        await update.message.reply_text("No new numbers were added.")
 
 async def auto_broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE, service: str, lang: str):
+    """নতুন নম্বর যোগ করার পর সকল ব্যবহারকারীকে ঘোষণা পাঠায় এবং পুরানোটা ডিলিট করে।"""
     bot = context.bot
+    # ধাপ ১: পুরানো ঘোষণা ডিলিট করা
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT user_id, message_id FROM broadcast_messages WHERE broadcast_type = 'auto_new_number'")
@@ -546,10 +578,11 @@ async def auto_broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE, service
                 try:
                     await bot.delete_message(chat_id=msg['user_id'], message_id=msg['message_id'])
                 except (Forbidden, BadRequest):
-                    pass
+                    pass # ব্যবহারকারী বট ব্লক করলে বা মেসেজ না থাকলে সমস্যা নেই
             await acur.execute("DELETE FROM broadcast_messages WHERE broadcast_type = 'auto_new_number'")
     await bot.send_message(ADMIN_USER_ID, LANG_TEXT[lang]['broadcast_deleted'])
 
+    # ধাপ ২: নতুন ঘোষণা পাঠানো
     async with await get_db_conn() as aconn:
         async with aconn.cursor(row_factory=psycopg.rows.dict_row) as acur:
             await acur.execute("SELECT user_id, language FROM users WHERE is_banned = FALSE")
@@ -565,6 +598,7 @@ async def auto_broadcast_new_numbers(context: ContextTypes.DEFAULT_TYPE, service
         except Forbidden:
             logger.warning(f"User {user['user_id']} has blocked the bot. Skipping broadcast.")
 
+    # ধাপ ৩: নতুন মেসেজ আইডি সেভ করা
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur:
             await acur.executemany("INSERT INTO broadcast_messages (user_id, message_id, broadcast_type) VALUES (%s, %s, %s)", new_message_ids)
@@ -614,6 +648,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     message_to_send = ' '.join(context.args)
     
+    # আগের ম্যানুয়াল ব্রডকাস্ট মেসেজ আইডি মুছে ফেলা
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur:
             await acur.execute("DELETE FROM broadcast_messages WHERE broadcast_type = 'manual'")
@@ -638,6 +673,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.error(f"Failed to send message to {user['user_id']}: {e}")
     
+    # নতুন মেসেজ আইডি সেভ করা
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur:
             await acur.executemany("INSERT INTO broadcast_messages (user_id, message_id, broadcast_type) VALUES (%s, %s, %s)", new_message_ids)
@@ -671,7 +707,7 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id_to_ban = int(context.args[0])
-    ban_until = datetime.datetime.now() + datetime.timedelta(days=999)
+    ban_until = datetime.datetime.now() + datetime.timedelta(days=999) # ম্যানুয়াল ব্যান
     async with await get_db_conn() as aconn:
         async with aconn.cursor() as acur:
             await acur.execute("UPDATE users SET is_banned = TRUE, ban_until = %s WHERE user_id = %s", (ban_until, user_id_to_ban))
@@ -707,9 +743,11 @@ def main() -> None:
 
     bot_app = Application.builder().token(BOT_TOKEN).post_init(setup_database).build()
     
+    # জব কিউ সেটআপ
     job_queue = bot_app.job_queue
-    job_queue.run_daily(daily_cleanup_job, time=datetime.time(hour=21, minute=0, tzinfo=datetime.timezone.utc))
+    job_queue.run_daily(daily_cleanup_job, time=datetime.time(hour=21, minute=0, tzinfo=datetime.timezone.utc)) # রাত ৩টা (UTC+6)
 
+    # --- অ্যাডমিন কমান্ড হ্যান্ডলার ---
     bot_app.add_handler(CommandHandler("add", add_number_command))
     bot_app.add_handler(CommandHandler("delnumber", del_number_command))
     bot_app.add_handler(CommandHandler("reactivate", reactivate_number_command))
@@ -718,14 +756,17 @@ def main() -> None:
     bot_app.add_handler(CommandHandler("ban", ban_command))
     bot_app.add_handler(CommandHandler("unban", unban_command))
     
+    # --- ব্যবহারকারী কমান্ড হ্যান্ডলার ---
     bot_app.add_handler(CommandHandler("start", start_command))
     
+    # --- ReplyKeyboard বাটনগুলোর জন্য MessageHandler ---
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{GET_NUMBER_TEXT}$'), handle_get_number))
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{MY_STATS_TEXT}$'), handle_my_stats))
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{SUPPORT_TEXT}$'), handle_support))
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{LANGUAGE_TEXT}$'), handle_language_button))
     bot_app.add_handler(MessageHandler(filters.TEXT & filters.Regex(f'^{ADMIN_PANEL_TEXT}$'), admin_panel))
 
+    # --- ইনলাইন বাটনের জন্য CallbackQueryHandler ---
     bot_app.add_handler(CallbackQueryHandler(handle_button_press, pattern="^(get_number_|otp_ok_|otp_fail_|set_lang_|back_to_main)"))
     bot_app.add_handler(CallbackQueryHandler(handle_admin_callbacks, pattern="^admin_"))
 
@@ -733,6 +774,4 @@ def main() -> None:
     bot_app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
-    main()```
-
-এই পরিবর্তনের পর আপনার বট রিস্টার্ট হলেই ডাটাবেস টেবিলটি ঠিক হয়ে যাবে এবং আপনার `/add` কমান্ডসহ সকল কমান্ড সঠিকভাবে কাজ করবে।
+    main()
